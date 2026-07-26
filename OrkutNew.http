@@ -1,0 +1,6 @@
+@OrkutNew_HostAddress = http://localhost:5272
+
+GET {{OrkutNew_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
