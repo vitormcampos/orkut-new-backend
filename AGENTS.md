@@ -49,7 +49,8 @@ make db-drop
 | http    | `http://localhost:5272`      |
 | https   | `https://localhost:7074`     |
 
-- OpenAPI (Swagger) UI maps to `/openapi/v1.json` in Development environment only.
+- Swagger UI maps to `/swagger` in Development environment only.
+- OpenAPI JSON maps to `/swagger/v1/swagger.json` in Development environment only.
 
 ## Architectural principles
 
@@ -121,6 +122,22 @@ Contains:
 
 - Use `[ApiController]` and `[Route("[controller]")]` — no minimal APIs.
 - Every new feature reaches the controller **last**, after Domain → Application → Infrastructure.
+
+### API documentation and Swagger
+
+- Keep Swagger UI enabled in Development at `/swagger`.
+- Keep the OpenAPI JSON available at `/swagger/v1/swagger.json`.
+- Use XML documentation comments on every controller and endpoint:
+- `<summary>` for controller/action purpose
+- `<param>` for request body, route/query/form parameters, and cancellation tokens
+- `<returns>` when the endpoint returns a response body
+- `<response>` for expected HTTP status codes
+- Add `[ProducesResponseType]` to every endpoint for success and expected error responses.
+- Add `[Consumes("multipart/form-data")]` for file upload endpoints.
+- Use JWT Bearer authentication in Swagger through the `Bearer` security scheme.
+- Mark only endpoints protected by `[Authorize]` as requiring Bearer authentication in OpenAPI.
+- Public endpoints such as login, register, refresh, and password recovery must remain callable without Swagger authorization unless the controller explicitly requires `[Authorize]`.
+- After changing Swagger documentation, validate with `dotnet build`, `dotnet test`, and a runtime check of `/swagger/v1/swagger.json`.
 
 ## Persistence pattern: EF Core direct, no Repository
 
