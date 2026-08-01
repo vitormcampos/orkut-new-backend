@@ -1,8 +1,6 @@
 # Orkut New — Backend
 
-**Stack**: ASP.NET Core Web API, .NET 10.0 (`net10.0`), OpenAPI.
-
-Minimal scaffold generated from `dotnet new webapi`. Only the default `WeatherForecast` endpoint exists.
+**Stack**: ASP.NET Core Web API, .NET 10.0 (`net10.0`), OpenAPI, PostgreSQL, EF Core.
 
 ## Dev commands
 
@@ -11,11 +9,10 @@ dotnet run          # runs the http profile (port 5272)
 dotnet run --launch-profile https   # explicit HTTPS (port 7074)
 dotnet watch        # hot-reload dev server
 dotnet build        # compile only
+dotnet test         # run all tests
+dotnet ef migrations add <Name>
+dotnet ef database update
 ```
-
-- No test project, linter, formatter, or CI config exists yet.
-- `.env` is gitignored but no `.env` file has been created.
-- No Dockerfile or container support yet.
 
 ## Ports & endpoints
 
@@ -25,23 +22,6 @@ dotnet build        # compile only
 | https   | `https://localhost:7074`     |
 
 - OpenAPI (Swagger) UI maps to `/openapi/v1.json` in Development environment only.
-- The `.http` file at the project root uses `http://localhost:5272` — works with VS Code REST Client.
-
-## Project structure (current)
-
-```
-Controllers/        # API controllers
-Properties/         # launchSettings.json
-appsettings.json    # shared config
-appsettings.Development.json
-Program.cs          # entrypoint — minimal API host builder
-OrkutNew.csproj     # net10.0, ImplicitUsings, Nullable enable
-```
-
-- `ImplicitUsings` is on (`using` for System, Linq, etc. are auto-generated).
-- `Nullable` is enabled project-wide.
-
-Only `Microsoft.AspNetCore.OpenApi` (v10.0.10) — no EF Core, auth middleware, or other packages added yet.
 
 ## Architectural principles
 
@@ -59,8 +39,8 @@ Controllers/            # API entry point (Controllers, not minimal APIs)
 App.Domain/             # core business rules
 App.Application/        # use case orchestration
 App.IOC/                # dependency injection registration
-App.Infrastructure/     # concrete implementations (EF Core, repositories, external services)
-Program.cs              # entrypoint — minimal API host builder
+App.Infrastructure/     # concrete implementations (EF Core, external services)
+Program.cs              # entrypoint
 ```
 
 ### `App.Domain`
@@ -68,9 +48,8 @@ Program.cs              # entrypoint — minimal API host builder
 Core business rules. No external dependencies.
 
 Contains:
-- **Models** — entities and value objects
+- **Entities** — entities and value objects
 - **Exceptions** — domain-specific exceptions
-- **Domain interfaces** — only when strictly domain-related
 - Pure business logic
 
 Rules:
@@ -79,40 +58,99 @@ Rules:
 
 ### `App.Application`
 
-Orchestrates use cases. Depends only on `Domain`.
+Orchestrates use cases. Depends on `Domain` and `Microsoft.EntityFrameworkCore`.
 
 Contains:
 - **Services** — use case implementations
 - **DTOs** — immutable data transfer objects (`record`)
-- **Interfaces** — repository contracts, etc.
+- **Interfaces** — application-level contracts (e.g., `IPasswordHasher`)
 - **Exceptions** — application-specific
 
 Responsibility:
 - Call domain logic
 - Apply workflow/flow rules
-- Coordinate persistence through interfaces (never directly)
+- Coordinate persistence through `DbContext` (EF Core base class) — directly, not via repository
 
 ### `App.IOC`
 
-Dependency injection composition root.
+Dependency injection composition root. References `Infrastructure` and `Application`.
 
 Responsibility:
+- Register `AppDbContext` (concrete from Infrastructure) as `DbContext` base type
 - Register services from all layers
 - Configure the DI container
 
 ### `App.Infrastructure`
 
-Concrete implementations. Depends on `Application` (interfaces).
+Concrete implementations. Depends on `Application` (interfaces) and EF Core provider.
 
 Contains:
-- EF Core `DbContext` and migrations
-- Repository implementations
-- External service clients
+- EF Core `DbContext` (`AppDbContext` — extends `Microsoft.EntityFrameworkCore.DbContext`)
+- Entity type configurations (Fluent API mappings)
+- Migrations
+- External service clients (e.g., `BCryptPasswordHasher`)
 
 ### Controllers
 
 - Use `[ApiController]` and `[Route("[controller]")]` — no minimal APIs.
 - Every new feature reaches the controller **last**, after Domain → Application → Infrastructure.
+
+## Persistence pattern: EF Core direct, no Repository
+
+We do **not** use the Repository pattern. Instead, services inject `DbContext` directly and use `Set<T>()` to access the database.
+
+### Why
+
+- EF Core `DbSet<T>` **is** a repository — `Add()`, `Remove()`, `FindAsync()`, `Where()`
+- EF Core `SaveChangesAsync()` **is** Unit of Work
+- Wrapping 1:1 calls in repository classes adds indirection without value
+- The [eShop reference architecture](https://github.com/dotnet/eshop) from Microsoft uses `DbContext` directly
+
+### How
+
+```csharp
+// App.Application/Services/UserService.cs
+public class UserService : IUserService
+{
+    private readonly DbContext _context; // base class from EF Core
+    private readonly IPasswordHasher _passwordHasher;
+
+    public UserService(DbContext context, IPasswordHasher passwordHasher) { ... }
+
+    public async Task<UserDto?> GetByIdAsync(Guid id, CancellationToken ct)
+    {
+        var user = await _context.Set<User>().FindAsync([id], ct);
+        return user is null ? null : MapToDto(user);
+    }
+
+    public async Task<UserDto> CreateAsync(CreateUserRequest request, CancellationToken ct)
+    {
+        var user = new User(request.Name, request.Email, passwordHash);
+        _context.Set<User>().Add(user);
+        await _context.SaveChangesAsync(ct);
+        return MapToDto(user);
+    }
+}
+```
+
+The IOC layer registers `AppDbContext` (from `App.Infrastructure`) so the DI container resolves the concrete type as `DbContext`.
+
+### Dependency graph
+
+```
+App.Domain
+    ↑
+App.Application ──→ Microsoft.EntityFrameworkCore (DbSet<T>, DbContext)
+    ↑
+App.Infrastructure ──→ Npgsql, BCrypt, App.Application (interfaces only)
+    ↑
+App.IOC ──→ App.Infrastructure, App.Application
+    ↑
+OrkutNew (Web API)
+```
+
+- `App.Application` depends on `DbContext` (EF Core abstraction), NOT on `App.Infrastructure`
+- No circular dependency — `Application` never references `Infrastructure`
 
 ## Modeling conventions
 
@@ -121,6 +159,7 @@ Contains:
 - Protect their own state
 - Never allow invalid state — validate in the constructor
 - Identity matters
+- Private parameterless constructor for EF Core
 
 ### DTOs (`record`)
 
@@ -147,11 +186,15 @@ All features must be developed using TDD:
 
 One test project per layer:
 
-| Project               | What it tests                         |
-|-----------------------|---------------------------------------|
-| `App.Domain.Test`     | Entities, value objects, domain rules |
-| `App.Application.Test`| Use cases / services with mocked deps |
-| `App.Infrastructure.Test` | Repositories via Sqlite/Testcontainers |
+| Project               | What it tests                         | Strategy |
+|-----------------------|---------------------------------------|----------|
+| `App.Domain.Test`     | Entities, value objects, domain rules | Unit tests (pure) |
+| `App.Application.Test`| Use cases / services                  | EF Core InMemory database (`UseInMemoryDatabase`) |
+| `App.Infrastructure.Test` | DbContext, migrations, configurations | SQLite / Testcontainers |
+
+### Why InMemory for Application tests
+
+Since we use `DbContext` directly (no repository mocks), tests use a real EF Core context backed by InMemory database. This exercises the full persistence path — tracking, `SaveChanges`, queries — without external dependencies.
 
 ### Naming conventions
 
@@ -189,14 +232,15 @@ public void Update_ShouldThrowWhenItemIsNull()
 ### Test characteristics
 
 - **Small** — test one thing
-- **Isolated** — no shared state between tests
-- **No real infrastructure** — mock external dependencies
+- **Isolated** — no shared state between tests (unique DB name per test class)
+- **No external infrastructure** — InMemory database for application tests, mock external services only (e.g., `IPasswordHasher`)
 
 ### Tooling
 
 - Framework: **xUnit**
-- Mocking: **NSubstitute**
-- Integration EF Core: `Microsoft.Data.Sqlite` (in-memory) or `Testcontainers`
+- Mocking: **NSubstitute** (for external interfaces only — `IPasswordHasher`, etc.)
+- Application tests: `Microsoft.EntityFrameworkCore.InMemory`
+- Data faking: **Bogus**
 
 ### Commands
 
@@ -209,8 +253,9 @@ dotnet test --filter "Category=Unit"         # filter by category
 
 | Test type           | Layer(s)             | What to test                   |
 |---------------------|----------------------|--------------------------------|
-| Unit                | Domain, Application  | Business rules, use cases      |
-| Integration         | Infrastructure       | Repositories, persistence      |
+| Unit                | Domain               | Business rules, entities       |
+| Integration (InMemory) | Application       | Use cases, service orchestration |
+| Integration         | Infrastructure       | DbContext, persistence         |
 | Integration (host)  | Controllers          | `WebApplicationFactory`        |
 
 ## Project checklist
@@ -222,4 +267,4 @@ Before starting a new feature or project:
 - [ ] IOC configured (dependency injection registration)
 - [ ] Naming conventions defined and followed
 - [ ] Clear separation between Domain and Application
-- [ ] README with architectural description (if public-facing)
+- [ ] `AppDbContext` registered as `DbContext` base type in IOC
