@@ -9,6 +9,7 @@ public static class UserFaker
         .CustomInstantiator(f => new User(
             f.Name.FullName(),
             f.Internet.Email(),
+            f.Internet.UserName().ToLower().Replace(".", "_"),
             f.Internet.Password()
         ));
 

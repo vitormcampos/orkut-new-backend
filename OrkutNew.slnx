@@ -1,9 +1,9 @@
 <Solution>
+  <Project Path="App.API/OrkutNew.csproj" />
   <Project Path="App.Application.Test/App.Application.Test.csproj" />
   <Project Path="App.Application/App.Application.csproj" />
   <Project Path="App.Domain.Test/App.Domain.Test.csproj" />
   <Project Path="App.Domain/App.Domain.csproj" />
   <Project Path="App.Infrastructure/App.Infrastructure.csproj" />
   <Project Path="App.IOC/App.IOC.csproj" />
-  <Project Path="OrkutNew.csproj" />
 </Solution>

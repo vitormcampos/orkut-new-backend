@@ -19,7 +19,11 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>(options =>
             options.UseNpgsql(connectionString));
 
+        services.AddScoped<DbContext>(provider => provider.GetRequiredService<AppDbContext>());
+
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
+        services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
+        services.AddScoped<IEmailSender, SmtpEmailSender>();
 
         return services;
     }
@@ -28,6 +32,8 @@ public static class DependencyInjection
         this IServiceCollection services)
     {
         services.AddScoped<IUserService, UserService>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
 
         return services;
     }

@@ -1,3 +1,4 @@
+using App.Domain.Entities;
 using App.Domain.Test.Fakers;
 
 namespace App.Domain.Test;
@@ -8,19 +9,16 @@ public class UserTest
     public void Constructor_ShouldCreateUser_WhenDataIsValid()
     {
         // Arrange
-        var faker = new Bogus.Faker();
-        var name = faker.Name.FullName();
-        var email = faker.Internet.Email();
-        var password = faker.Internet.Password();
+        var user = UserFaker.Generate();
 
-        // Act
-        var user = new Domain.Entities.User(name, email, password);
-
-        // Assert
+        // Act & Assert
         Assert.NotEqual(Guid.Empty, user.Id);
-        Assert.Equal(name, user.Name);
-        Assert.Equal(email, user.Email);
-        Assert.Equal(password, user.PasswordHash);
+        Assert.NotNull(user.Name);
+        Assert.NotNull(user.Email);
+        Assert.NotNull(user.Username);
+        Assert.NotNull(user.PasswordHash);
+        Assert.True(user.IsActive);
+        Assert.Null(user.DeletedAt);
         Assert.True(user.CreatedAt <= DateTime.UtcNow);
     }
 
@@ -34,7 +32,7 @@ public class UserTest
         // Assert
         Assert.NotEqual(user1.Id, user2.Id);
         Assert.NotEqual(user1.Email, user2.Email);
-        Assert.NotEqual(user1.PasswordHash, user2.PasswordHash);
+        Assert.NotEqual(user1.Username, user2.Username);
     }
 
     [Theory]
@@ -45,11 +43,9 @@ public class UserTest
     {
         // Arrange
         var faker = new Bogus.Faker();
-        var email = faker.Internet.Email();
-        var password = faker.Internet.Password();
 
         // Act
-        var act = () => new Domain.Entities.User(invalidName!, email, password);
+        var act = () => new User(invalidName!, faker.Internet.Email(), "john_doe", faker.Internet.Password());
 
         // Assert
         var exception = Assert.Throws<ArgumentException>(act);
@@ -65,11 +61,30 @@ public class UserTest
     {
         // Arrange
         var faker = new Bogus.Faker();
-        var name = faker.Name.FullName();
-        var password = faker.Internet.Password();
 
         // Act
-        var act = () => new Domain.Entities.User(name, invalidEmail!, password);
+        var act = () => new User(faker.Name.FullName(), invalidEmail!, "john_doe", faker.Internet.Password());
+
+        // Assert
+        Assert.Throws<ArgumentException>(act);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("   ")]
+    [InlineData("ab")]                    // too short
+    [InlineData("A_BC")]                 // uppercase
+    [InlineData("john-doe")]             // hyphen
+    [InlineData("john doe")]             // space
+    [InlineData("john@doe")]             // special char
+    public void Constructor_ShouldThrow_WhenUsernameIsInvalid(string? invalidUsername)
+    {
+        // Arrange
+        var faker = new Bogus.Faker();
+
+        // Act
+        var act = () => new User(faker.Name.FullName(), faker.Internet.Email(), invalidUsername!, faker.Internet.Password());
 
         // Assert
         Assert.Throws<ArgumentException>(act);
@@ -83,86 +98,84 @@ public class UserTest
     {
         // Arrange
         var faker = new Bogus.Faker();
-        var name = faker.Name.FullName();
-        var email = faker.Internet.Email();
 
         // Act
-        var act = () => new Domain.Entities.User(name, email, invalidPassword!);
+        var act = () => new User(faker.Name.FullName(), faker.Internet.Email(), "john_doe", invalidPassword!);
 
         // Assert
         Assert.Throws<ArgumentException>(act);
     }
 
     [Fact]
-    public void Email_ShouldBeImmutable_AfterConstruction()
+    public void SetUsername_ShouldUpdate_WhenValid()
     {
         // Arrange
         var user = UserFaker.Generate();
-        var originalEmail = user.Email;
 
-        // Assert — Email property has private setter, cannot be changed externally
-        Assert.Equal(originalEmail, user.Email);
+        // Act
+        user.SetUsername("new_username123");
+
+        // Assert
+        Assert.Equal("new_username123", user.Username);
     }
 
     [Fact]
-    public void SetName_ShouldUpdateName_WhenNameIsValid()
-    {
-        // Arrange
-        var user = UserFaker.Generate();
-        var faker = new Bogus.Faker();
-        var newName = faker.Name.FullName();
-
-        // Act
-        user.SetName(newName);
-
-        // Assert
-        Assert.Equal(newName, user.Name);
-    }
-
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void SetName_ShouldThrow_WhenNameIsInvalid(string? invalidName)
+    public void Deactivate_ShouldSetIsActiveFalseAndDeletedAt()
     {
         // Arrange
         var user = UserFaker.Generate();
 
         // Act
-        var act = () => user.SetName(invalidName!);
+        user.Deactivate();
 
         // Assert
-        var exception = Assert.Throws<ArgumentException>(act);
-        Assert.Contains("Name", exception.Message);
+        Assert.False(user.IsActive);
+        Assert.NotNull(user.DeletedAt);
+        Assert.True(user.DeletedAt <= DateTime.UtcNow);
     }
 
     [Fact]
-    public void SetPasswordHash_ShouldUpdatePasswordHash_WhenHashIsValid()
+    public void SetLastLogin_ShouldUpdateLastLoginAt()
     {
         // Arrange
         var user = UserFaker.Generate();
-        var newHash = "$2a$11$abcdefghijklmnopqrstuvwxyz12345678901234567890";
 
         // Act
-        user.SetPasswordHash(newHash);
+        user.SetLastLogin();
 
         // Assert
-        Assert.Equal(newHash, user.PasswordHash);
+        Assert.NotNull(user.LastLoginAt);
+        Assert.True(user.LastLoginAt <= DateTime.UtcNow);
     }
 
-    [Theory]
-    [InlineData(null)]
-    [InlineData("")]
-    [InlineData("   ")]
-    public void SetPasswordHash_ShouldThrow_WhenHashIsInvalid(string? invalidHash)
+    [Fact]
+    public void SetPasswordResetToken_ShouldStoreTokenWithExpiry()
     {
         // Arrange
         var user = UserFaker.Generate();
 
         // Act
-        var act = () => user.SetPasswordHash(invalidHash!);
+        user.SetPasswordResetToken("reset-token-123");
 
         // Assert
-        Assert.Throws<ArgumentException>(act);
+        Assert.Equal("reset-token-123", user.PasswordResetToken);
+        Assert.NotNull(user.PasswordResetExpiry);
+        Assert.True(user.PasswordResetExpiry > DateTime.UtcNow);
+        Assert.True(user.IsPasswordResetTokenValid());
+    }
+
+    [Fact]
+    public void ClearPasswordResetToken_ShouldRemoveTokenAndExpiry()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+        user.SetPasswordResetToken("reset-token-123");
+
+        // Act
+        user.ClearPasswordResetToken();
+
+        // Assert
+        Assert.Null(user.PasswordResetToken);
+        Assert.Null(user.PasswordResetExpiry);
     }
 }

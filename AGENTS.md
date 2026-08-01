@@ -5,13 +5,41 @@
 ## Dev commands
 
 ```bash
-dotnet run          # runs the http profile (port 5272)
-dotnet run --launch-profile https   # explicit HTTPS (port 7074)
-dotnet watch        # hot-reload dev server
-dotnet build        # compile only
-dotnet test         # run all tests
-dotnet ef migrations add <Name>
-dotnet ef database update
+dotnet run --project App.API           # runs the http profile (port 5272)
+dotnet run --project App.API --launch-profile https  # HTTPS (port 7074)
+dotnet watch --project App.API          # hot-reload dev server
+dotnet build                                 # compile only
+dotnet test                                  # run all tests
+make migration-add NAME=<Name>               # add EF migration
+make db-update                               # apply latest migration
+make db-update MIGRATION=<Name>              # apply specific migration
+```
+
+### Makefile helpers
+
+The root `Makefile` centralizes EF Core commands and always passes:
+
+```bash
+--startup-project App.API/OrkutNew.csproj
+--project App.Infrastructure/App.Infrastructure.csproj
+--context AppDbContext
+```
+
+Common commands:
+
+```bash
+make help
+make build
+make test
+make run
+make watch
+make migration-add NAME=InitialCreate
+make migration-remove
+make migration-list
+make migration-script OUTPUT=artifacts/migration.sql
+make migration-bundle OUTPUT=artifacts/efbundle
+make db-update
+make db-drop
 ```
 
 ## Ports & endpoints
@@ -35,12 +63,11 @@ All new projects and features must follow:
 ## Layer structure (Clean Architecture)
 
 ```
-Controllers/            # API entry point (Controllers, not minimal APIs)
-App.Domain/             # core business rules
-App.Application/        # use case orchestration
-App.IOC/                # dependency injection registration
-App.Infrastructure/     # concrete implementations (EF Core, external services)
-Program.cs              # entrypoint
+App.API/                 # ASP.NET Core Web API host (Controllers, Program.cs, appsettings)
+App.Domain/              # core business rules
+App.Application/         # use case orchestration
+App.IOC/                 # dependency injection registration
+App.Infrastructure/      # concrete implementations (EF Core, external services)
 ```
 
 ### `App.Domain`

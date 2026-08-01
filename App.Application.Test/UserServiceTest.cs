@@ -103,7 +103,7 @@ public class UserServiceTest : IDisposable
         // Assert
         Assert.NotNull(result);
         Assert.Equal(request.Name, result.Name);
-        Assert.Equal(request.Email, result.Email);
+        Assert.Equal(request.Email.ToLowerInvariant(), result.Email);
 
         _passwordHasher.Received(1).Hash(request.Password);
 
@@ -121,7 +121,7 @@ public class UserServiceTest : IDisposable
     public async Task CreateAsync_ShouldThrowValidationException_WhenPasswordIsInvalid(string? invalidPassword)
     {
         // Arrange
-        var request = new CreateUserRequest("John Doe", "john@example.com", invalidPassword!);
+        var request = new CreateUserRequest("John Doe", "john@example.com", "john_doe", invalidPassword!);
 
         // Act
         var act = () => _userService.CreateAsync(request);
