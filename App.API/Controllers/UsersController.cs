@@ -15,10 +15,12 @@ namespace Controllers;
 public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
+    private readonly IStorageService _storageService;
 
-    public UsersController(IUserService userService)
+    public UsersController(IUserService userService, IStorageService storageService)
     {
         _userService = userService;
+        _storageService = storageService;
     }
 
     private Guid GetUserId()
@@ -90,17 +92,10 @@ public class UsersController : ControllerBase
     {
         var userId = GetUserId();
 
-        // Simple local file storage
-        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploads", "photos");
-        Directory.CreateDirectory(uploadsFolder);
+        var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
+        var key = $"{userId}/photos/{fileName}";
+        var photoUrl = await _storageService.UploadAsync(file.OpenReadStream(), key, file.ContentType, ct);
 
-        var fileName = $"{userId}_{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
-        var filePath = Path.Combine(uploadsFolder, fileName);
-
-        await using var stream = new FileStream(filePath, FileMode.Create);
-        await file.CopyToAsync(stream, ct);
-
-        var photoUrl = $"/uploads/photos/{fileName}";
         var user = await _userService.SetProfilePictureAsync(userId, photoUrl, ct);
 
         return Ok(user);

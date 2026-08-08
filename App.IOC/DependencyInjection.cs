@@ -24,6 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordHasher, BCryptPasswordHasher>();
         services.AddScoped<ITokenGenerator, JwtTokenGenerator>();
         services.AddScoped<IEmailSender, SmtpEmailSender>();
+        services.AddScoped<IStorageService, CloudflareR2StorageService>();
 
         return services;
     }
