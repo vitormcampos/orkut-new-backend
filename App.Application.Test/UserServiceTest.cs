@@ -90,6 +90,57 @@ public class UserServiceTest : IDisposable
     }
 
     [Fact]
+    public async Task SearchAsync_ShouldReturnActiveUsersByNameOrUsername_CaseInsensitively()
+    {
+        // Arrange
+        var ana = new User("Ana Silva", "ana@example.com", "ana_silva", "Test@123");
+        var inactive = new User("Ana Inactive", "inactive@example.com", "ana_inactive", "Test@123");
+        inactive.Deactivate();
+        var unrelated = new User("Bruno", "bruno@example.com", "bruno", "Test@123");
+        _context.Users.AddRange(ana, inactive, unrelated);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _userService.SearchAsync("  ANA  ");
+
+        // Assert
+        var match = Assert.Single(result);
+        Assert.Equal(ana.Id, match.Id);
+        Assert.Equal("ana_silva", match.Username);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData("a")]
+    public async Task SearchAsync_ShouldThrowValidationException_WhenTermIsInvalid(string? term)
+    {
+        // Arrange
+
+        // Act
+        var act = () => _userService.SearchAsync(term!, 10);
+
+        // Assert
+        await Assert.ThrowsAsync<ValidationException>(act);
+    }
+
+    [Fact]
+    public async Task SearchAsync_ShouldClampLimitToTwenty()
+    {
+        // Arrange
+        var users = Enumerable.Range(1, 21)
+            .Select(i => new User($"Person {i:00}", $"person{i}@example.com", $"person_{i}", "Test@123"));
+        _context.Users.AddRange(users);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _userService.SearchAsync("person", 25);
+
+        // Assert
+        Assert.Equal(20, result.Count);
+    }
+
+    [Fact]
     public async Task CreateAsync_ShouldHashPasswordAndReturnCreatedUserDto()
     {
         // Arrange

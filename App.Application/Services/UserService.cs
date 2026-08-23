@@ -58,6 +58,21 @@ public class UserService : IUserService
         return users.Select(MapToDto);
     }
 
+    public async Task<IReadOnlyList<UserSearchResultDto>> SearchAsync(string term, int limit = 10, CancellationToken cancellationToken = default)
+    {
+        var normalizedTerm = NormalizeSearchTerm(term);
+        var normalizedLimit = limit < 1 ? 10 : Math.Min(limit, 20);
+
+        return await _context.Set<User>()
+            .AsNoTracking()
+            .Where(u => u.IsActive && (u.Name.ToLower().Contains(normalizedTerm) || u.Username.ToLower().Contains(normalizedTerm)))
+            .OrderBy(u => u.Name)
+            .ThenBy(u => u.Id)
+            .Take(normalizedLimit)
+            .Select(u => new UserSearchResultDto(u.Id, u.Name, u.Username, u.ProfilePicture))
+            .ToListAsync(cancellationToken);
+    }
+
     public async Task<UserDto> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(request.Password) || request.Password.Length < 6)
@@ -209,5 +224,14 @@ public class UserService : IUserService
         if (!Enum.TryParse<RelationshipStatus>(value, true, out var status) || !Enum.IsDefined(status))
             throw new ValidationException($"Invalid relationship status: '{value}'.");
         return status;
+    }
+
+    private static string NormalizeSearchTerm(string term)
+    {
+        var normalizedTerm = term?.Trim() ?? string.Empty;
+        if (normalizedTerm.Length is < 2 or > 100)
+            throw new ValidationException("Search term must be between 2 and 100 characters.");
+
+        return normalizedTerm.ToLowerInvariant();
     }
 }

@@ -23,11 +23,11 @@ public class GlobalExceptionHandler : IExceptionHandler
         {
             ValidationException or ArgumentException =>
                 (StatusCodes.Status400BadRequest, "Invalid request", exception.Message),
-            NotFoundException or UserNotFoundException or FriendshipNotFoundException =>
+            NotFoundException or UserNotFoundException or FriendshipNotFoundException or CommunityNotFoundException =>
                 (StatusCodes.Status404NotFound, "Not found", exception.Message),
             InvalidCredentialsException =>
                 (StatusCodes.Status401Unauthorized, "Unauthorized", exception.Message),
-            AccountDeactivatedException or UnauthorizedFriendshipActionException =>
+            AccountDeactivatedException or UnauthorizedFriendshipActionException or UnauthorizedCommunityActionException =>
                 (StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
             EmailAlreadyExistsException or UsernameAlreadyTakenException =>
                 (StatusCodes.Status409Conflict, "Conflict", exception.Message),

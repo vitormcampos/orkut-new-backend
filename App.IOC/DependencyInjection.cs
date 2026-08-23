@@ -37,6 +37,7 @@ public static class DependencyInjection
         services.AddScoped<IPasswordRecoveryService, PasswordRecoveryService>();
         services.AddScoped<IFriendshipService, FriendshipService>();
         services.AddScoped<IProfileService, ProfileService>();
+        services.AddScoped<ICommunityService, CommunityService>();
 
         return services;
     }
