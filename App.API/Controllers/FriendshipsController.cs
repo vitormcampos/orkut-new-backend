@@ -175,7 +175,7 @@ public class FriendshipsController : ControllerBase
     /// <response code="200">Amigos em comum listados com sucesso.</response>
     /// <response code="401">Token JWT ausente ou invalido.</response>
     [HttpGet("in-common/{userId:guid}")]
-    [ProducesResponseType(typeof(IEnumerable<UserDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetFriendsInCommon(Guid userId, CancellationToken ct)
     {

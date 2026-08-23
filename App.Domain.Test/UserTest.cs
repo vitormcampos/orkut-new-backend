@@ -178,4 +178,142 @@ public class UserTest
         Assert.Null(user.PasswordResetToken);
         Assert.Null(user.PasswordResetExpiry);
     }
+
+    [Fact]
+    public void SetBirthDate_ShouldThrow_WhenInFuture()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+        var future = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1));
+
+        // Act
+        var act = () => user.SetBirthDate(future);
+
+        // Assert
+        var exception = Assert.Throws<ArgumentException>(act);
+        Assert.Contains("Birth date", exception.Message);
+    }
+
+    [Fact]
+    public void SetBirthDate_ShouldSet_WhenValid()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+        var birthDate = new DateOnly(1990, 5, 15);
+
+        // Act
+        user.SetBirthDate(birthDate);
+
+        // Assert
+        Assert.Equal(birthDate, user.BirthDate);
+    }
+
+    [Fact]
+    public void SetBirthDate_ShouldClear_WhenNull()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+        user.SetBirthDate(new DateOnly(1990, 5, 15));
+
+        // Act
+        user.SetBirthDate(null);
+
+        // Assert
+        Assert.Null(user.BirthDate);
+    }
+
+    [Fact]
+    public void SetLocation_ShouldTrimValues()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+
+        // Act
+        user.SetLocation("  São Paulo  ", "  SP  ");
+
+        // Assert
+        Assert.Equal("São Paulo", user.City);
+        Assert.Equal("SP", user.State);
+    }
+
+    [Fact]
+    public void SetLocation_ShouldSetNull_WhenWhitespace()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+
+        // Act
+        user.SetLocation("   ", "");
+
+        // Assert
+        Assert.Null(user.City);
+        Assert.Null(user.State);
+    }
+
+    [Fact]
+    public void SetRelationshipStatus_ShouldSetValue()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+
+        // Act
+        user.SetRelationshipStatus(RelationshipStatus.Married);
+
+        // Assert
+        Assert.Equal(RelationshipStatus.Married, user.RelationshipStatus);
+    }
+
+    [Fact]
+    public void SetRelationshipStatus_ShouldClear_WhenNull()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+        user.SetRelationshipStatus(RelationshipStatus.Single);
+
+        // Act
+        user.SetRelationshipStatus(null);
+
+        // Assert
+        Assert.Null(user.RelationshipStatus);
+    }
+
+    [Fact]
+    public void SetInterests_ShouldTrimAndDeduplicate()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+
+        // Act
+        user.SetInterests(
+            new[] { " Rock ", "rock", " Pop " },
+            new[] { " Action ", "" },
+            new[] { "  ", "Fiction" },
+            new[] { " Reading ", "reading" });
+
+        // Assert
+        Assert.Equal(new[] { "Rock", "Pop" }, user.MusicInterests);
+        Assert.Equal(new[] { "Action" }, user.MovieInterests);
+        Assert.Equal(new[] { "Fiction" }, user.BookInterests);
+        Assert.Equal(new[] { "Reading" }, user.Hobbies);
+    }
+
+    [Fact]
+    public void SetInterests_ShouldSetNull_WhenEmptyOrWhitespace()
+    {
+        // Arrange
+        var user = UserFaker.Generate();
+
+        // Act
+        user.SetInterests(
+            new[] { "  " },
+            Array.Empty<string>(),
+            null,
+            new[] { "", "  " });
+
+        // Assert
+        Assert.Null(user.MusicInterests);
+        Assert.Null(user.MovieInterests);
+        Assert.Null(user.BookInterests);
+        Assert.Null(user.Hobbies);
+    }
 }

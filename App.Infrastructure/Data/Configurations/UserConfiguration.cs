@@ -54,6 +54,39 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
             .HasMaxLength(500)
             .HasColumnName("bio");
 
+        builder.Property(u => u.BirthDate)
+            .HasColumnType("date")
+            .HasColumnName("birth_date");
+
+        builder.Property(u => u.City)
+            .HasMaxLength(100)
+            .HasColumnName("city");
+
+        builder.Property(u => u.State)
+            .HasMaxLength(100)
+            .HasColumnName("state");
+
+        builder.Property(u => u.RelationshipStatus)
+            .HasMaxLength(30)
+            .HasColumnName("relationship_status")
+            .HasConversion<string>();
+
+        builder.Property(u => u.MusicInterests)
+            .HasColumnType("text[]")
+            .HasColumnName("music_interests");
+
+        builder.Property(u => u.MovieInterests)
+            .HasColumnType("text[]")
+            .HasColumnName("movie_interests");
+
+        builder.Property(u => u.BookInterests)
+            .HasColumnType("text[]")
+            .HasColumnName("book_interests");
+
+        builder.Property(u => u.Hobbies)
+            .HasColumnType("text[]")
+            .HasColumnName("hobbies");
+
         builder.Property(u => u.IsActive)
             .IsRequired()
             .HasDefaultValue(true)

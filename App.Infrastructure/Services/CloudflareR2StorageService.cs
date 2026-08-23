@@ -9,17 +9,39 @@ namespace App.Infrastructure.Services;
 
 public class CloudflareR2StorageService : IStorageService
 {
-    private readonly IAmazonS3 _s3Client;
-    private readonly string _bucketName;
-    private readonly string _publicUrl;
+    private readonly IConfiguration _configuration;
+    private readonly Lazy<IAmazonS3> _s3Client;
 
     public CloudflareR2StorageService(IConfiguration configuration)
     {
-        var serviceUrl = configuration["R2:ServiceUrl"]!;
-        var accessKeyId = configuration["R2:AccessKeyId"]!;
-        var secretAccessKey = configuration["R2:SecretAccessKey"]!;
-        _bucketName = configuration["R2:BucketName"]!;
-        _publicUrl = configuration["R2:PublicUrl"]!;
+        _configuration = configuration;
+        _s3Client = new Lazy<IAmazonS3>(CreateS3Client);
+    }
+
+    public async Task<string> UploadAsync(Stream stream, string fileName, string contentType, CancellationToken cancellationToken = default)
+    {
+        var bucketName = _configuration["R2:BucketName"]!;
+        var publicUrl = _configuration["R2:PublicUrl"]!;
+
+        var request = new PutObjectRequest
+        {
+            BucketName = bucketName,
+            Key = fileName,
+            InputStream = stream,
+            ContentType = contentType,
+            DisablePayloadSigning = true
+        };
+
+        await _s3Client.Value.PutObjectAsync(request, cancellationToken);
+
+        return $"{publicUrl}/{fileName}";
+    }
+
+    private IAmazonS3 CreateS3Client()
+    {
+        var serviceUrl = _configuration["R2:ServiceUrl"]!;
+        var accessKeyId = _configuration["R2:AccessKeyId"]!;
+        var secretAccessKey = _configuration["R2:SecretAccessKey"]!;
 
         var credentials = new BasicAWSCredentials(accessKeyId, secretAccessKey);
         var config = new AmazonS3Config
@@ -28,22 +50,6 @@ public class CloudflareR2StorageService : IStorageService
             ForcePathStyle = true
         };
 
-        _s3Client = new AmazonS3Client(credentials, config);
-    }
-
-    public async Task<string> UploadAsync(Stream stream, string fileName, string contentType, CancellationToken cancellationToken = default)
-    {
-        var request = new PutObjectRequest
-        {
-            BucketName = _bucketName,
-            Key = fileName,
-            InputStream = stream,
-            ContentType = contentType,
-            DisablePayloadSigning = true
-        };
-
-        await _s3Client.PutObjectAsync(request, cancellationToken);
-
-        return $"{_publicUrl}/{fileName}";
+        return new AmazonS3Client(credentials, config);
     }
 }

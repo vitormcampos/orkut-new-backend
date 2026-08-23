@@ -160,7 +160,7 @@ public class FriendshipService : IFriendshipService
         return friendships.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<UserDto>> GetFriendsInCommonAsync(Guid userId, Guid otherUserId, CancellationToken ct = default)
+    public async Task<IEnumerable<UserSummaryDto>> GetFriendsInCommonAsync(Guid userId, Guid otherUserId, CancellationToken ct = default)
     {
         var userFriendIds = await _context.Set<Friendship>()
             .Where(f =>
@@ -179,12 +179,25 @@ public class FriendshipService : IFriendshipService
         var commonIds = userFriendIds.Intersect(otherFriendIds).ToList();
 
         if (commonIds.Count == 0)
-            return Enumerable.Empty<UserDto>();
+            return Enumerable.Empty<UserSummaryDto>();
 
-        return await _context.Set<User>()
+        var users = await _context.Set<User>()
             .Where(u => commonIds.Contains(u.Id))
-            .Select(u => new UserDto(u.Id, u.Name, u.Email, u.Username, u.ProfilePicture, u.Bio, u.IsActive, u.CreatedAt))
             .ToListAsync(ct);
+
+        return users.Select(MapToSummaryDto);
+    }
+
+    public async Task<int> GetFriendCountAsync(Guid userId, CancellationToken ct = default)
+    {
+        return await _context.Set<Friendship>().CountAsync(f =>
+            (f.RequesterId == userId || f.AddresseeId == userId) &&
+            f.Status == FriendshipStatus.Accepted, ct);
+    }
+
+    private static UserSummaryDto MapToSummaryDto(User user)
+    {
+        return new UserSummaryDto(user.Id, user.Name, user.Username, user.ProfilePicture);
     }
 
     private static FriendshipDto MapToDto(Friendship friendship)

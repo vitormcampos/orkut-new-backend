@@ -11,5 +11,6 @@ public interface IFriendshipService
     Task<IEnumerable<FriendshipDto>> GetFriendsAsync(Guid userId, CancellationToken ct = default);
     Task<IEnumerable<FriendshipDto>> GetPendingRequestsAsync(Guid userId, CancellationToken ct = default);
     Task<IEnumerable<FriendshipDto>> GetSentRequestsAsync(Guid userId, CancellationToken ct = default);
-    Task<IEnumerable<UserDto>> GetFriendsInCommonAsync(Guid userId, Guid otherUserId, CancellationToken ct = default);
+    Task<IEnumerable<UserSummaryDto>> GetFriendsInCommonAsync(Guid userId, Guid otherUserId, CancellationToken ct = default);
+    Task<int> GetFriendCountAsync(Guid userId, CancellationToken ct = default);
 }

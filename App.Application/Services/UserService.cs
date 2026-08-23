@@ -50,11 +50,12 @@ public class UserService : IUserService
 
     public async Task<IEnumerable<UserDto>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Set<User>()
+        var users = await _context.Set<User>()
             .AsNoTracking()
             .OrderBy(u => u.CreatedAt)
-            .Select(u => new UserDto(u.Id, u.Name, u.Email, u.Username, u.ProfilePicture, u.Bio, u.IsActive, u.CreatedAt))
             .ToListAsync(cancellationToken);
+
+        return users.Select(MapToDto);
     }
 
     public async Task<UserDto> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default)
@@ -114,8 +115,12 @@ public class UserService : IUserService
             user.SetUsername(request.Username);
         }
 
-        if (request.Bio is not null)
-            user.SetBio(request.Bio);
+        user.SetBio(request.Bio);
+
+        user.SetBirthDate(request.BirthDate);
+        user.SetLocation(request.City, request.State);
+        user.SetRelationshipStatus(ParseRelationshipStatus(request.RelationshipStatus));
+        user.SetInterests(request.MusicInterests, request.MovieInterests, request.BookInterests, request.Hobbies);
 
         await _context.SaveChangesAsync(cancellationToken);
 
@@ -191,7 +196,18 @@ public class UserService : IUserService
         return new UserDto(
             user.Id, user.Name, user.Email, user.Username,
             user.ProfilePicture, user.Bio,
-            user.IsActive, user.CreatedAt
+            user.IsActive, user.CreatedAt,
+            user.BirthDate, user.City, user.State,
+            user.RelationshipStatus?.ToString(),
+            user.MusicInterests, user.MovieInterests, user.BookInterests, user.Hobbies
         );
+    }
+
+    private static RelationshipStatus? ParseRelationshipStatus(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        if (!Enum.TryParse<RelationshipStatus>(value, true, out var status) || !Enum.IsDefined(status))
+            throw new ValidationException($"Invalid relationship status: '{value}'.");
+        return status;
     }
 }

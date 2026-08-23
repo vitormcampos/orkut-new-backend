@@ -34,7 +34,15 @@ public static class UserFaker
         .CustomInstantiator(f => new UpdateProfileRequest(
             f.Name.FullName(),
             f.Internet.UserName().ToLower().Replace(".", "_"),
-            null
+            f.Lorem.Sentence(),
+            DateOnly.FromDateTime(f.Person.DateOfBirth),
+            f.Address.City(),
+            f.Address.State(),
+            f.PickRandom("Single", "Dating", "Engaged", "Married", "SeriousRelationship", "Complicated", "Divorced", "Widowed"),
+            f.Make(2, () => f.Music.Genre()).ToArray(),
+            f.Make(2, () => f.Random.Word()).ToArray(),
+            f.Make(2, () => f.Commerce.ProductName()).ToArray(),
+            f.Make(2, () => f.Hacker.Noun()).ToArray()
         ));
 
     public static User GenerateUser() => UserEntityFaker.Generate();

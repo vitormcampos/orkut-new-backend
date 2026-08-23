@@ -46,7 +46,7 @@ public class AuthServiceTest : IDisposable
         var refreshToken = new RefreshToken(user.Id, "refresh-token-xyz", DateTime.UtcNow.AddDays(7));
 
         _userService.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new UserDto(user.Id, user.Name, user.Email, user.Username, null, null, true, user.CreatedAt));
+            .Returns(new UserDto(user.Id, user.Name, user.Email, user.Username, null, null, true, user.CreatedAt, null, null, null, null, null, null, null, null));
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
@@ -90,7 +90,7 @@ public class AuthServiceTest : IDisposable
         var request = new LoginRequest(user.Email, "WrongPassword");
 
         _userService.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new UserDto(user.Id, user.Name, user.Email, user.Username, null, null, true, user.CreatedAt));
+            .Returns(new UserDto(user.Id, user.Name, user.Email, user.Username, null, null, true, user.CreatedAt, null, null, null, null, null, null, null, null));
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
@@ -113,7 +113,7 @@ public class AuthServiceTest : IDisposable
         var request = new LoginRequest(user.Email, "Test@123");
 
         _userService.GetByEmailAsync(Arg.Any<string>(), Arg.Any<CancellationToken>())
-            .Returns(new UserDto(user.Id, user.Name, user.Email, user.Username, null, null, false, user.CreatedAt));
+            .Returns(new UserDto(user.Id, user.Name, user.Email, user.Username, null, null, false, user.CreatedAt, null, null, null, null, null, null, null, null));
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();

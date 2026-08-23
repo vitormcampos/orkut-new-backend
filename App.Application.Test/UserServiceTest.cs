@@ -3,6 +3,7 @@ using App.Application.Exceptions;
 using App.Application.Interfaces;
 using App.Application.Services;
 using App.Application.Test.Fakers;
+using App.Domain.Entities;
 using App.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
@@ -194,6 +195,93 @@ public class UserServiceTest : IDisposable
 
         // Assert
         await Assert.ThrowsAsync<NotFoundException>(act);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_ShouldPersistNewProfileFields()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var request = UserFaker.GenerateUpdateProfileRequest();
+
+        // Act
+        var result = await _userService.UpdateProfileAsync(user.Id, request);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(request.Name, result.Name);
+        Assert.Equal(request.BirthDate, result.BirthDate);
+        Assert.Equal(request.RelationshipStatus, result.RelationshipStatus);
+        Assert.NotNull(result.MusicInterests);
+        Assert.NotNull(result.MovieInterests);
+        Assert.NotNull(result.BookInterests);
+        Assert.NotNull(result.Hobbies);
+
+        var updatedUser = await _context.Users.FindAsync(user.Id);
+        Assert.NotNull(updatedUser);
+        Assert.Equal(request.BirthDate, updatedUser!.BirthDate);
+        Assert.Equal(request.City, updatedUser.City);
+        Assert.Equal(request.State, updatedUser.State);
+        Assert.Equal(request.RelationshipStatus, updatedUser.RelationshipStatus?.ToString());
+        Assert.NotNull(updatedUser.MusicInterests);
+        Assert.NotNull(updatedUser.MovieInterests);
+        Assert.NotNull(updatedUser.BookInterests);
+        Assert.NotNull(updatedUser.Hobbies);
+    }
+
+    [Theory]
+    [InlineData("Invalid")]
+    [InlineData("999")]
+    public async Task UpdateProfileAsync_ShouldThrowValidationException_WhenRelationshipStatusIsInvalid(string invalidStatus)
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var request = new UpdateProfileRequest(
+            "Name", null, null, null, null, null,
+            invalidStatus, null, null, null, null);
+
+        // Act
+        var act = () => _userService.UpdateProfileAsync(user.Id, request);
+
+        // Assert
+        await Assert.ThrowsAsync<ValidationException>(act);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_ShouldClearFields_WhenNullProvided()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        user.SetBirthDate(new DateOnly(1990, 1, 1));
+        user.SetLocation("São Paulo", "SP");
+        user.SetRelationshipStatus(RelationshipStatus.Married);
+        user.SetInterests(new[] { "Rock" }, new[] { "Action" }, new[] { "Fiction" }, new[] { "Reading" });
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        var request = new UpdateProfileRequest(
+            "Name", user.Username, null, null, null, null, null, null, null, null, null);
+
+        // Act
+        await _userService.UpdateProfileAsync(user.Id, request);
+
+        // Assert
+        var updated = await _context.Users.FindAsync(user.Id);
+        Assert.NotNull(updated);
+        Assert.Null(updated!.BirthDate);
+        Assert.Null(updated.City);
+        Assert.Null(updated.State);
+        Assert.Null(updated.RelationshipStatus);
+        Assert.Null(updated.MusicInterests);
+        Assert.Null(updated.MovieInterests);
+        Assert.Null(updated.BookInterests);
+        Assert.Null(updated.Hobbies);
     }
 
     [Fact]

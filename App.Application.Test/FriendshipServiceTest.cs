@@ -459,6 +459,70 @@ public class FriendshipServiceTest : IDisposable
         Assert.Empty(common);
     }
 
+    [Fact]
+    public async Task GetFriendCountAsync_ShouldReturnZero_WhenNoFriends()
+    {
+        // Arrange
+        var alice = CreateUser("Alice");
+        _context.Users.Add(alice);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var count = await _friendshipService.GetFriendCountAsync(alice.Id);
+
+        // Assert
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task GetFriendCountAsync_ShouldCountAcceptedFriends()
+    {
+        // Arrange
+        var alice = CreateUser("Alice");
+        var bob = CreateUser("Bob");
+        var charlie = CreateUser("Charlie");
+        _context.Users.AddRange(alice, bob, charlie);
+        await _context.SaveChangesAsync();
+
+        var ab = await _friendshipService.SendRequestAsync(alice.Id, "bob");
+        await _friendshipService.AcceptRequestAsync(ab.Id, bob.Id);
+
+        var ac = await _friendshipService.SendRequestAsync(alice.Id, "charlie");
+        await _friendshipService.AcceptRequestAsync(ac.Id, charlie.Id);
+
+        // Act
+        var count = await _friendshipService.GetFriendCountAsync(alice.Id);
+
+        // Assert
+        Assert.Equal(2, count);
+    }
+
+    [Fact]
+    public async Task GetFriendCountAsync_ShouldIgnorePendingAndRejected()
+    {
+        // Arrange
+        var alice = CreateUser("Alice");
+        var bob = CreateUser("Bob");
+        var charlie = CreateUser("Charlie");
+        var dave = CreateUser("Dave");
+        _context.Users.AddRange(alice, bob, charlie, dave);
+        await _context.SaveChangesAsync();
+
+        var ab = await _friendshipService.SendRequestAsync(alice.Id, "bob");
+        await _friendshipService.AcceptRequestAsync(ab.Id, bob.Id);
+
+        await _friendshipService.SendRequestAsync(alice.Id, "charlie");
+
+        var ad = await _friendshipService.SendRequestAsync(alice.Id, "dave");
+        await _friendshipService.RejectRequestAsync(ad.Id, dave.Id);
+
+        // Act
+        var count = await _friendshipService.GetFriendCountAsync(alice.Id);
+
+        // Assert
+        Assert.Equal(1, count);
+    }
+
     private static User CreateUser(string name)
     {
         return new User(

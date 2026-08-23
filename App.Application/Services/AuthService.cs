@@ -90,7 +90,10 @@ public class AuthService : IAuthService
         return new UserDto(
             user.Id, user.Name, user.Email, user.Username,
             user.ProfilePicture, user.Bio,
-            user.IsActive, user.CreatedAt
+            user.IsActive, user.CreatedAt,
+            user.BirthDate, user.City, user.State,
+            user.RelationshipStatus?.ToString(),
+            user.MusicInterests, user.MovieInterests, user.BookInterests, user.Hobbies
         );
     }
 }

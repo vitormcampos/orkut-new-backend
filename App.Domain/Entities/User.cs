@@ -13,6 +13,14 @@ public class User
     public string PasswordHash { get; private set; } = null!;
     public string? ProfilePicture { get; private set; }
     public string? Bio { get; private set; }
+    public DateOnly? BirthDate { get; private set; }
+    public string? City { get; private set; }
+    public string? State { get; private set; }
+    public RelationshipStatus? RelationshipStatus { get; private set; }
+    public string[]? MusicInterests { get; private set; }
+    public string[]? MovieInterests { get; private set; }
+    public string[]? BookInterests { get; private set; }
+    public string[]? Hobbies { get; private set; }
     public bool IsActive { get; private set; }
     public DateTime? DeletedAt { get; private set; }
     public DateTime? LastLoginAt { get; private set; }
@@ -72,7 +80,43 @@ public class User
 
     public void SetBio(string? bio)
     {
-        Bio = bio;
+        Bio = string.IsNullOrWhiteSpace(bio) ? null : bio.Trim();
+    }
+
+    public void SetBirthDate(DateOnly? birthDate)
+    {
+        if (birthDate.HasValue && birthDate.Value > DateOnly.FromDateTime(DateTime.UtcNow))
+            throw new ArgumentException("Birth date cannot be in the future.", nameof(birthDate));
+        BirthDate = birthDate;
+    }
+
+    public void SetLocation(string? city, string? state)
+    {
+        City = Normalize(city);
+        State = Normalize(state);
+    }
+
+    public void SetRelationshipStatus(RelationshipStatus? status) => RelationshipStatus = status;
+
+    public void SetInterests(string[]? music, string[]? movie, string[]? book, string[]? hobbies)
+    {
+        MusicInterests = NormalizeList(music);
+        MovieInterests = NormalizeList(movie);
+        BookInterests = NormalizeList(book);
+        Hobbies = NormalizeList(hobbies);
+    }
+
+    private static string? Normalize(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private static string[]? NormalizeList(string[]? values)
+    {
+        if (values is null) return null;
+        var result = values.Select(v => v?.Trim())
+            .OfType<string>()
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return result.Length == 0 ? null : result;
     }
 
     public void Deactivate()
