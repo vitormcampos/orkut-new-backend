@@ -4,6 +4,7 @@ using App.Application.Interfaces;
 using App.Application.Services;
 using App.Application.Test.Fakers;
 using App.Domain.Entities;
+using App.Domain.Exceptions;
 using App.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using NSubstitute;
@@ -60,6 +61,50 @@ public class UserServiceTest : IDisposable
 
         // Assert
         Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetByEmailAsync_ShouldReturnUser_WhenEmailExists()
+    {
+        // Arrange
+        var user = new User("Email User", "email@test.com", "email_user", "hash");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _userService.GetByEmailAsync(user.Email);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(user.Id, result.Id);
+    }
+
+    [Fact]
+    public async Task GetByUsernameAsync_ShouldReturnNull_WhenUsernameDoesNotExist()
+    {
+        // Arrange
+
+        // Act
+        var result = await _userService.GetByUsernameAsync("missing_user");
+
+        // Assert
+        Assert.Null(result);
+    }
+
+    [Fact]
+    public async Task GetByUsernameAsync_ShouldReturnUser_WhenUsernameExists()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _userService.GetByUsernameAsync(user.Username);
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(user.Id, result.Id);
     }
 
     [Fact]
@@ -128,8 +173,14 @@ public class UserServiceTest : IDisposable
     public async Task SearchAsync_ShouldClampLimitToTwenty()
     {
         // Arrange
-        var users = Enumerable.Range(1, 21)
-            .Select(i => new User($"Person {i:00}", $"person{i}@example.com", $"person_{i}", "Test@123"));
+        var users = Enumerable
+            .Range(1, 21)
+            .Select(i => new User(
+                $"Person {i:00}",
+                $"person{i}@example.com",
+                $"person_{i}",
+                "Test@123"
+            ));
         _context.Users.AddRange(users);
         await _context.SaveChangesAsync();
 
@@ -170,10 +221,17 @@ public class UserServiceTest : IDisposable
     [InlineData("   ")]
     [InlineData("ab")]
     [InlineData("abcde")]
-    public async Task CreateAsync_ShouldThrowValidationException_WhenPasswordIsInvalid(string? invalidPassword)
+    public async Task CreateAsync_ShouldThrowValidationException_WhenPasswordIsInvalid(
+        string? invalidPassword
+    )
     {
         // Arrange
-        var request = new CreateUserRequest("John Doe", "john@example.com", "john_doe", invalidPassword!);
+        var request = new CreateUserRequest(
+            "John Doe",
+            "john@example.com",
+            "john_doe",
+            invalidPassword!
+        );
 
         // Act
         var act = () => _userService.CreateAsync(request);
@@ -217,7 +275,9 @@ public class UserServiceTest : IDisposable
     [InlineData("   ")]
     [InlineData("ab")]
     [InlineData("abcde")]
-    public async Task UpdateAsync_ShouldThrowValidationException_WhenPasswordIsInvalid(string? invalidPassword)
+    public async Task UpdateAsync_ShouldThrowValidationException_WhenPasswordIsInvalid(
+        string? invalidPassword
+    )
     {
         // Arrange
         var user = UserFaker.GenerateUser();
@@ -286,7 +346,9 @@ public class UserServiceTest : IDisposable
     [Theory]
     [InlineData("Invalid")]
     [InlineData("999")]
-    public async Task UpdateProfileAsync_ShouldThrowValidationException_WhenRelationshipStatusIsInvalid(string invalidStatus)
+    public async Task UpdateProfileAsync_ShouldThrowValidationException_WhenRelationshipStatusIsInvalid(
+        string invalidStatus
+    )
     {
         // Arrange
         var user = UserFaker.GenerateUser();
@@ -294,8 +356,18 @@ public class UserServiceTest : IDisposable
         await _context.SaveChangesAsync();
 
         var request = new UpdateProfileRequest(
-            "Name", null, null, null, null, null,
-            invalidStatus, null, null, null, null);
+            "Name",
+            null,
+            null,
+            null,
+            null,
+            null,
+            invalidStatus,
+            null,
+            null,
+            null,
+            null
+        );
 
         // Act
         var act = () => _userService.UpdateProfileAsync(user.Id, request);
@@ -312,12 +384,28 @@ public class UserServiceTest : IDisposable
         user.SetBirthDate(new DateOnly(1990, 1, 1));
         user.SetLocation("São Paulo", "SP");
         user.SetRelationshipStatus(RelationshipStatus.Married);
-        user.SetInterests(new[] { "Rock" }, new[] { "Action" }, new[] { "Fiction" }, new[] { "Reading" });
+        user.SetInterests(
+            new[] { "Rock" },
+            new[] { "Action" },
+            new[] { "Fiction" },
+            new[] { "Reading" }
+        );
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
         var request = new UpdateProfileRequest(
-            "Name", user.Username, null, null, null, null, null, null, null, null, null);
+            "Name",
+            user.Username,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
 
         // Act
         await _userService.UpdateProfileAsync(user.Id, request);
@@ -362,5 +450,177 @@ public class UserServiceTest : IDisposable
 
         // Assert
         await Assert.ThrowsAsync<NotFoundException>(act);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_ShouldUpdateProfileFields()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+        var request = new UpdateProfileRequest(
+            "Updated",
+            "updated_user",
+            "New bio",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        // Act
+        var result = await _userService.UpdateProfileAsync(user.Id, request);
+
+        // Assert
+        Assert.Equal("Updated", result.Name);
+        Assert.Equal("updated_user", result.Username);
+        Assert.Equal("New bio", result.Bio);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_ShouldThrow_WhenUsernameAlreadyExists()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        var other = UserFaker.GenerateUser();
+        _context.Users.AddRange(user, other);
+        await _context.SaveChangesAsync();
+        var request = new UpdateProfileRequest(
+            user.Name,
+            other.Username,
+            user.Bio,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        // Act
+        var act = () => _userService.UpdateProfileAsync(user.Id, request);
+
+        // Assert
+        await Assert.ThrowsAsync<UsernameAlreadyTakenException>(act);
+    }
+
+    [Fact]
+    public async Task UpdateProfileAsync_ShouldThrow_WhenUserDoesNotExist()
+    {
+        // Arrange
+        var request = new UpdateProfileRequest(
+            "Name",
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null
+        );
+
+        // Act
+        var act = () => _userService.UpdateProfileAsync(Guid.NewGuid(), request);
+
+        // Assert
+        await Assert.ThrowsAsync<NotFoundException>(act);
+    }
+
+    [Fact]
+    public async Task DeactivateAsync_ShouldDeactivateUser()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _userService.DeactivateAsync(user.Id);
+
+        // Assert
+        var stored = await _context.Users.FindAsync(user.Id);
+        Assert.NotNull(stored);
+        Assert.False(stored!.IsActive);
+        Assert.NotNull(stored.DeletedAt);
+    }
+
+    [Fact]
+    public async Task SetProfilePictureAsync_ShouldUpdatePicture()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _userService.SetProfilePictureAsync(
+            user.Id,
+            "https://img.test/avatar.png"
+        );
+
+        // Assert
+        Assert.Equal("https://img.test/avatar.png", result.ProfilePicture);
+    }
+
+    [Fact]
+    public async Task SetPasswordResetTokenAsync_ShouldPersistToken()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        await _userService.SetPasswordResetTokenAsync(user, "reset-token");
+
+        // Assert
+        var stored = await _context.Users.FindAsync(user.Id);
+        Assert.Equal("reset-token", stored!.PasswordResetToken);
+    }
+
+    [Fact]
+    public async Task GetByPasswordResetTokenAsync_ShouldReturnUser()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        user.SetPasswordResetToken("reset-token");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _userService.GetByPasswordResetTokenAsync("reset-token");
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(user.Id, result.Id);
+    }
+
+    [Fact]
+    public async Task ResetPasswordAsync_ShouldHashPasswordAndClearToken()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        user.SetPasswordResetToken("reset-token");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+        _passwordHasher.Hash("NewPassword123!").Returns("new-hash");
+
+        // Act
+        await _userService.ResetPasswordAsync(user, "NewPassword123!");
+
+        // Assert
+        var stored = await _context.Users.FindAsync(user.Id);
+        Assert.Equal("new-hash", stored!.PasswordHash);
+        Assert.Null(stored.PasswordResetToken);
     }
 }

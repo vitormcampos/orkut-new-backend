@@ -23,8 +23,7 @@ public class FriendshipsController : ControllerBase
 
     private Guid GetUserId()
     {
-        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier)
-                  ?? User.FindFirstValue("sub");
+        var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
         return Guid.Parse(sub!);
     }
 
@@ -43,10 +42,17 @@ public class FriendshipsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> SendRequest([FromBody] SendFriendshipRequest request, CancellationToken ct)
+    public async Task<IActionResult> SendRequest(
+        [FromBody] SendFriendshipRequest request,
+        CancellationToken ct
+    )
     {
         var userId = GetUserId();
-        var result = await _friendshipService.SendRequestAsync(userId, request.AddresseeUsername, ct);
+        var result = await _friendshipService.SendRequestAsync(
+            userId,
+            request.AddresseeUsername,
+            ct
+        );
         return CreatedAtAction(nameof(SendRequest), new { id = result.Id }, result);
     }
 
@@ -175,7 +181,7 @@ public class FriendshipsController : ControllerBase
     /// <response code="200">Amigos em comum listados com sucesso.</response>
     /// <response code="401">Token JWT ausente ou invalido.</response>
     [HttpGet("in-common/{userId:guid}")]
-    [ProducesResponseType(typeof(IEnumerable<UserSummaryDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(IEnumerable<PublicUserDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetFriendsInCommon(Guid userId, CancellationToken ct)
     {

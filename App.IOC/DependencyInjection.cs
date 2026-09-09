@@ -17,7 +17,12 @@ public static class DependencyInjection
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseNpgsql(connectionString));
+        {
+            if (bool.TryParse(configuration["Database:UseInMemory"], out var useInMemory) && useInMemory)
+                options.UseInMemoryDatabase("orkut-new");
+            else
+                options.UseNpgsql(connectionString);
+        });
 
         services.AddScoped<DbContext>(provider => provider.GetRequiredService<AppDbContext>());
 

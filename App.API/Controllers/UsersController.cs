@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using App.Application.DTOs;
 using App.Application.Interfaces;
+using App.Application.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Controllers;
 
@@ -16,11 +18,16 @@ public class UsersController : ControllerBase
 {
     private readonly IUserService _userService;
     private readonly IStorageService _storageService;
+    private readonly ProfilePhotoOptions _profilePhotoOptions;
 
-    public UsersController(IUserService userService, IStorageService storageService)
+    public UsersController(
+        IUserService userService,
+        IStorageService storageService,
+        IOptions<ProfilePhotoOptions> profilePhotoOptions)
     {
         _userService = userService;
         _storageService = storageService;
+        _profilePhotoOptions = profilePhotoOptions.Value;
     }
 
     private Guid GetUserId()
@@ -105,14 +112,25 @@ public class UsersController : ControllerBase
     [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> UploadPhoto(IFormFile file, CancellationToken ct)
+    public async Task<IActionResult> UploadPhoto(IFormFile? file, CancellationToken ct)
     {
+        if (file is null || file.Length == 0)
+            return BadRequest("A foto de perfil e obrigatoria.");
+
+        if (file.Length > _profilePhotoOptions.MaxFileSizeBytes)
+            return BadRequest("A foto de perfil deve ter no maximo 5 MB.");
+
+        if (!_profilePhotoOptions.AllowedContentTypes.Contains(
+                file.ContentType,
+                StringComparer.OrdinalIgnoreCase))
+            return BadRequest("Formato de foto nao permitido. Use JPEG, PNG ou WebP.");
+
         var userId = GetUserId();
-
-        var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName)}";
+        var fileName = $"{Guid.NewGuid():N}{Path.GetExtension(file.FileName).ToLowerInvariant()}";
         var key = $"{userId}/photos/{fileName}";
-        var photoUrl = await _storageService.UploadAsync(file.OpenReadStream(), key, file.ContentType, ct);
 
+        await using var stream = file.OpenReadStream();
+        var photoUrl = await _storageService.UploadAsync(stream, key, file.ContentType, ct);
         var user = await _userService.SetProfilePictureAsync(userId, photoUrl, ct);
 
         return Ok(user);

@@ -1,8 +1,10 @@
-using System.Text;
 using System.Reflection;
+using System.Text;
 using App.API.Conventions;
+using App.API.ExceptionHandling;
 using App.API.Filters;
 using App.API.Middleware;
+using App.Application.Options;
 using App.IOC;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
@@ -12,6 +14,9 @@ using Microsoft.OpenApi;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
+builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.AddProblemDetails();
+
 builder.Services.AddControllers(options =>
 {
     options.Conventions.Insert(0, new ApiRoutePrefixConvention(new RouteAttribute("api/v1")));
@@ -19,25 +24,33 @@ builder.Services.AddControllers(options =>
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo
-    {
-        Title = "Orkut New API",
-        Version = "v1",
-        Description = "API backend do Orkut New. Use o botao Authorize para testar endpoints protegidos com JWT Bearer."
-    });
+    options.SwaggerDoc(
+        "v1",
+        new OpenApiInfo
+        {
+            Title = "Orkut New API",
+            Version = "v1",
+            Description =
+                "API backend do Orkut New. Use o botao Authorize para testar endpoints protegidos com JWT Bearer.",
+        }
+    );
 
     var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
     var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
     options.IncludeXmlComments(xmlPath, includeControllerXmlComments: true);
 
-    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Type = SecuritySchemeType.Http,
-        Scheme = "bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Informe apenas o token JWT. O Swagger enviara o header: Authorization: Bearer {token}."
-    });
+    options.AddSecurityDefinition(
+        "Bearer",
+        new OpenApiSecurityScheme
+        {
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description =
+                "Informe apenas o token JWT. O Swagger enviara o header: Authorization: Bearer {token}.",
+        }
+    );
 
     options.OperationFilter<AuthorizeOperationFilter>();
 });
@@ -45,6 +58,9 @@ builder.Services.AddSwaggerGen(options =>
 // Clean Architecture — layers
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApplication();
+builder.Services.Configure<ProfilePhotoOptions>(
+    builder.Configuration.GetSection(ProfilePhotoOptions.SectionName)
+);
 
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
@@ -54,24 +70,25 @@ var jwtSecret = builder.Configuration["Jwt:Secret"]!;
 var jwtIssuer = builder.Configuration["Jwt:Issuer"]!;
 var jwtAudience = builder.Configuration["Jwt:Audience"]!;
 
-builder.Services.AddAuthentication(options =>
-{
-    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(options =>
-{
-    options.TokenValidationParameters = new TokenValidationParameters
+builder
+    .Services.AddAuthentication(options =>
     {
-        ValidateIssuer = true,
-        ValidateAudience = true,
-        ValidateLifetime = true,
-        ValidateIssuerSigningKey = true,
-        ValidIssuer = jwtIssuer,
-        ValidAudience = jwtAudience,
-        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret))
-    };
-});
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtIssuer,
+            ValidAudience = jwtAudience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret)),
+        };
+    });
 
 builder.Services.AddAuthorization();
 
@@ -79,13 +96,13 @@ var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<st
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("DefaultCorsPolicy", policy =>
-    {
-        policy.WithOrigins(corsOrigins)
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-              .AllowCredentials();
-    });
+    options.AddPolicy(
+        "DefaultCorsPolicy",
+        policy =>
+        {
+            policy.WithOrigins(corsOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+        }
+    );
 });
 
 var app = builder.Build();
@@ -107,6 +124,8 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseExceptionHandler();
+
 app.UseCors("DefaultCorsPolicy");
 
 app.UseAuthentication();
@@ -115,3 +134,5 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+public partial class Program { }

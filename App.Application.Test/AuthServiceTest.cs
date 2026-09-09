@@ -170,6 +170,54 @@ public class AuthServiceTest : IDisposable
     }
 
     [Fact]
+    public async Task RefreshTokenAsync_ShouldThrow_WhenTokenIsExpired()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        var token = new RefreshToken(user.Id, "expired-refresh", DateTime.UtcNow.AddMinutes(-1));
+        _context.Users.Add(user);
+        _context.Set<RefreshToken>().Add(token);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var act = () => _authService.RefreshTokenAsync(new RefreshTokenRequest(token.Token));
+
+        // Assert
+        await Assert.ThrowsAsync<InvalidCredentialsException>(act);
+    }
+
+    [Fact]
+    public async Task RefreshTokenAsync_ShouldThrow_WhenUserIsDeactivated()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        user.Deactivate();
+        var token = new RefreshToken(user.Id, "deactivated-refresh", DateTime.UtcNow.AddDays(1));
+        _context.Users.Add(user);
+        _context.Set<RefreshToken>().Add(token);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var act = () => _authService.RefreshTokenAsync(new RefreshTokenRequest(token.Token));
+
+        // Assert
+        await Assert.ThrowsAsync<AccountDeactivatedException>(act);
+    }
+
+    [Fact]
+    public async Task LogoutAsync_ShouldIgnoreUnknownToken()
+    {
+        // Arrange
+
+        // Act
+        var exception = await Record.ExceptionAsync(() =>
+            _authService.LogoutAsync("unknown-refresh"));
+
+        // Assert
+        Assert.Null(exception);
+    }
+
+    [Fact]
     public async Task LogoutAsync_ShouldRevokeToken()
     {
         // Arrange

@@ -8,7 +8,7 @@ DB_CONTEXT := AppDbContext
 EF := dotnet ef
 EF_COMMON := --startup-project $(API_PROJECT) --project $(MIGRATIONS_PROJECT) --context $(DB_CONTEXT)
 
-.PHONY: help restore build test run watch \
+.PHONY: help restore build test test-coverage run watch \
         migration-add migration-remove migration-list migration-script migration-bundle \
         db-update db-drop
 
@@ -19,6 +19,7 @@ help:
 	@echo "  make restore"
 	@echo "  make build"
 	@echo "  make test"
+	@echo "  make test-coverage"
 	@echo "  make run"
 	@echo "  make watch"
 	@echo ""
@@ -43,6 +44,9 @@ build:
 
 test:
 	dotnet test $(SOLUTION)
+
+test-coverage:
+	dotnet test $(SOLUTION) --collect:"XPlat Code Coverage" --settings coverage.runsettings --results-directory TestResults
 
 run:
 	dotnet run --project $(API_PROJECT)

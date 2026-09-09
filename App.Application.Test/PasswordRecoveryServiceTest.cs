@@ -91,6 +91,24 @@ public class PasswordRecoveryServiceTest
     }
 
     [Fact]
+    public async Task ResetPasswordAsync_ShouldThrow_WhenTokenIsExpired()
+    {
+        // Arrange
+        var user = UserFaker.GenerateUser();
+        user.SetPasswordResetToken("expired-token");
+        var passwordResetExpiry = typeof(User).GetProperty("PasswordResetExpiry");
+        passwordResetExpiry!.SetValue(user, DateTime.UtcNow.AddMinutes(-1));
+        _userService.GetByPasswordResetTokenAsync("expired-token", Arg.Any<CancellationToken>())
+            .Returns(user);
+
+        // Act
+        var act = () => _passwordRecoveryService.ResetPasswordAsync("expired-token", "NewTest@123");
+
+        // Assert
+        await Assert.ThrowsAsync<InvalidPasswordResetTokenException>(act);
+    }
+
+    [Fact]
     public async Task ResetPasswordAsync_ShouldThrow_WhenTokenNotFound()
     {
         // Arrange

@@ -15,9 +15,14 @@ public class FriendshipService : IFriendshipService
         _context = context;
     }
 
-    public async Task<FriendshipDto> SendRequestAsync(Guid requesterId, string addresseeUsername, CancellationToken ct = default)
+    public async Task<FriendshipDto> SendRequestAsync(
+        Guid requesterId,
+        string addresseeUsername,
+        CancellationToken ct = default
+    )
     {
-        var addressee = await _context.Set<User>()
+        var addressee = await _context
+            .Set<User>()
             .FirstOrDefaultAsync(u => u.Username == addresseeUsername && u.IsActive, ct);
 
         if (addressee is null)
@@ -28,17 +33,32 @@ public class FriendshipService : IFriendshipService
         if (requesterId == addresseeId)
             throw new FriendshipRequestToSelfException();
 
-        var alreadyFriends = await _context.Set<Friendship>()
-            .AnyAsync(f =>
-                (f.RequesterId == requesterId && f.AddresseeId == addresseeId && f.Status == FriendshipStatus.Accepted) ||
-                (f.RequesterId == addresseeId && f.AddresseeId == requesterId && f.Status == FriendshipStatus.Accepted),
-                ct);
+        var alreadyFriends = await _context
+            .Set<Friendship>()
+            .AnyAsync(
+                f =>
+                    (
+                        f.RequesterId == requesterId
+                        && f.AddresseeId == addresseeId
+                        && f.Status == FriendshipStatus.Accepted
+                    )
+                    || (
+                        f.RequesterId == addresseeId
+                        && f.AddresseeId == requesterId
+                        && f.Status == FriendshipStatus.Accepted
+                    ),
+                ct
+            );
 
         if (alreadyFriends)
             throw new AlreadyFriendsException();
 
-        var existing = await _context.Set<Friendship>()
-            .FirstOrDefaultAsync(f => f.RequesterId == requesterId && f.AddresseeId == addresseeId, ct);
+        var existing = await _context
+            .Set<Friendship>()
+            .FirstOrDefaultAsync(
+                f => f.RequesterId == requesterId && f.AddresseeId == addresseeId,
+                ct
+            );
 
         if (existing is not null)
         {
@@ -69,9 +89,14 @@ public class FriendshipService : IFriendshipService
         return MapToDto(friendship);
     }
 
-    public async Task<FriendshipDto> AcceptRequestAsync(Guid friendshipId, Guid currentUserId, CancellationToken ct = default)
+    public async Task<FriendshipDto> AcceptRequestAsync(
+        Guid friendshipId,
+        Guid currentUserId,
+        CancellationToken ct = default
+    )
     {
-        var friendship = await _context.Set<Friendship>()
+        var friendship = await _context
+            .Set<Friendship>()
             .Include(f => f.Requester)
             .Include(f => f.Addressee)
             .FirstOrDefaultAsync(f => f.Id == friendshipId, ct);
@@ -88,9 +113,14 @@ public class FriendshipService : IFriendshipService
         return MapToDto(friendship);
     }
 
-    public async Task<FriendshipDto> RejectRequestAsync(Guid friendshipId, Guid currentUserId, CancellationToken ct = default)
+    public async Task<FriendshipDto> RejectRequestAsync(
+        Guid friendshipId,
+        Guid currentUserId,
+        CancellationToken ct = default
+    )
     {
-        var friendship = await _context.Set<Friendship>()
+        var friendship = await _context
+            .Set<Friendship>()
             .Include(f => f.Requester)
             .Include(f => f.Addressee)
             .FirstOrDefaultAsync(f => f.Id == friendshipId, ct);
@@ -107,10 +137,13 @@ public class FriendshipService : IFriendshipService
         return MapToDto(friendship);
     }
 
-    public async Task RemoveFriendshipAsync(Guid friendshipId, Guid currentUserId, CancellationToken ct = default)
+    public async Task RemoveFriendshipAsync(
+        Guid friendshipId,
+        Guid currentUserId,
+        CancellationToken ct = default
+    )
     {
-        var friendship = await _context.Set<Friendship>()
-            .FindAsync([friendshipId], ct);
+        var friendship = await _context.Set<Friendship>().FindAsync([friendshipId], ct);
 
         if (friendship is null)
             throw new FriendshipNotFoundException(friendshipId);
@@ -122,23 +155,32 @@ public class FriendshipService : IFriendshipService
         await _context.SaveChangesAsync(ct);
     }
 
-    public async Task<IEnumerable<FriendshipDto>> GetFriendsAsync(Guid userId, CancellationToken ct = default)
+    public async Task<IEnumerable<FriendshipDto>> GetFriendsAsync(
+        Guid userId,
+        CancellationToken ct = default
+    )
     {
-        var friendships = await _context.Set<Friendship>()
+        var friendships = await _context
+            .Set<Friendship>()
             .Include(f => f.Requester)
             .Include(f => f.Addressee)
             .Where(f =>
-                (f.RequesterId == userId || f.AddresseeId == userId) &&
-                f.Status == FriendshipStatus.Accepted)
+                (f.RequesterId == userId || f.AddresseeId == userId)
+                && f.Status == FriendshipStatus.Accepted
+            )
             .OrderBy(f => f.RespondedAt)
             .ToListAsync(ct);
 
         return friendships.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<FriendshipDto>> GetPendingRequestsAsync(Guid userId, CancellationToken ct = default)
+    public async Task<IEnumerable<FriendshipDto>> GetPendingRequestsAsync(
+        Guid userId,
+        CancellationToken ct = default
+    )
     {
-        var friendships = await _context.Set<Friendship>()
+        var friendships = await _context
+            .Set<Friendship>()
             .Include(f => f.Requester)
             .Include(f => f.Addressee)
             .Where(f => f.AddresseeId == userId && f.Status == FriendshipStatus.Pending)
@@ -148,9 +190,13 @@ public class FriendshipService : IFriendshipService
         return friendships.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<FriendshipDto>> GetSentRequestsAsync(Guid userId, CancellationToken ct = default)
+    public async Task<IEnumerable<FriendshipDto>> GetSentRequestsAsync(
+        Guid userId,
+        CancellationToken ct = default
+    )
     {
-        var friendships = await _context.Set<Friendship>()
+        var friendships = await _context
+            .Set<Friendship>()
             .Include(f => f.Requester)
             .Include(f => f.Addressee)
             .Where(f => f.RequesterId == userId && f.Status == FriendshipStatus.Pending)
@@ -160,44 +206,73 @@ public class FriendshipService : IFriendshipService
         return friendships.Select(MapToDto);
     }
 
-    public async Task<IEnumerable<UserSummaryDto>> GetFriendsInCommonAsync(Guid userId, Guid otherUserId, CancellationToken ct = default)
+    public async Task<IEnumerable<PublicUserDto>> GetFriendsInCommonAsync(
+        Guid userId,
+        Guid otherUserId,
+        CancellationToken ct = default
+    )
     {
-        var userFriendIds = await _context.Set<Friendship>()
+        var userFriendIds = await _context
+            .Set<Friendship>()
             .Where(f =>
-                (f.RequesterId == userId || f.AddresseeId == userId) &&
-                f.Status == FriendshipStatus.Accepted)
+                (f.RequesterId == userId || f.AddresseeId == userId)
+                && f.Status == FriendshipStatus.Accepted
+            )
             .Select(f => f.RequesterId == userId ? f.AddresseeId : f.RequesterId)
             .ToListAsync(ct);
 
-        var otherFriendIds = await _context.Set<Friendship>()
+        var otherFriendIds = await _context
+            .Set<Friendship>()
             .Where(f =>
-                (f.RequesterId == otherUserId || f.AddresseeId == otherUserId) &&
-                f.Status == FriendshipStatus.Accepted)
+                (f.RequesterId == otherUserId || f.AddresseeId == otherUserId)
+                && f.Status == FriendshipStatus.Accepted
+            )
             .Select(f => f.RequesterId == otherUserId ? f.AddresseeId : f.RequesterId)
             .ToListAsync(ct);
 
         var commonIds = userFriendIds.Intersect(otherFriendIds).ToList();
 
         if (commonIds.Count == 0)
-            return Enumerable.Empty<UserSummaryDto>();
+            return Enumerable.Empty<PublicUserDto>();
 
-        var users = await _context.Set<User>()
+        var users = await _context
+            .Set<User>()
             .Where(u => commonIds.Contains(u.Id))
+            .Select(u => new PublicUserDto(
+                u.Id,
+                u.Name,
+                u.Username,
+                u.ProfilePicture,
+                u.Bio,
+                u.CreatedAt
+            ))
             .ToListAsync(ct);
 
-        return users.Select(MapToSummaryDto);
+        return users;
     }
 
     public async Task<int> GetFriendCountAsync(Guid userId, CancellationToken ct = default)
     {
-        return await _context.Set<Friendship>().CountAsync(f =>
-            (f.RequesterId == userId || f.AddresseeId == userId) &&
-            f.Status == FriendshipStatus.Accepted, ct);
+        return await _context
+            .Set<Friendship>()
+            .CountAsync(
+                f =>
+                    (f.RequesterId == userId || f.AddresseeId == userId)
+                    && f.Status == FriendshipStatus.Accepted,
+                ct
+            );
     }
 
-    private static UserSummaryDto MapToSummaryDto(User user)
+    private static PublicUserDto MapToSummaryDto(User user)
     {
-        return new UserSummaryDto(user.Id, user.Name, user.Username, user.ProfilePicture);
+        return new PublicUserDto(
+            user.Id,
+            user.Name,
+            user.Username,
+            user.ProfilePicture,
+            user.Bio,
+            user.CreatedAt
+        );
     }
 
     private static FriendshipDto MapToDto(Friendship friendship)

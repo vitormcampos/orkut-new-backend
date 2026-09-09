@@ -37,11 +37,13 @@ public record PublicProfileDto(
     DateTime CreatedAt
 );
 
-public record UserSummaryDto(
+public record PublicUserDto(
     Guid Id,
     string Name,
     string Username,
-    string? ProfilePicture
+    string? ProfilePicture,
+    string? Bio,
+    DateTime CreatedAt
 );
 
 public record CreateUserRequest(string Name, string Email, string Username, string Password);
