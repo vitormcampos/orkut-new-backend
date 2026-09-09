@@ -107,6 +107,30 @@ public sealed class UsersControllerTests : ApiTestBase
     }
 
     [Fact]
+    public async Task UploadPhoto_ShouldReturnInternalServerErrorWhenStorageFails()
+    {
+        // Arrange
+        var user = await RegisterUserAsync("storage_failure");
+        using var content = new MultipartFormDataContent();
+        using var file = new ByteArrayContent([9, 8, 7]);
+        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        content.Add(file, "file", "avatar.png");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/users/me/photo")
+        {
+            Content = content,
+        };
+        Authenticate(request, user.Id);
+
+        // Act
+        var response = await Client.SendAsync(request);
+
+        // Assert
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("Simulated storage upload failure", body);
+    }
+
+    [Fact]
     public async Task UploadPhoto_ShouldRejectMissingFile()
     {
         using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/users/me/photo");

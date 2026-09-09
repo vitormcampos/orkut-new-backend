@@ -17,28 +17,56 @@ public class GlobalExceptionHandler : IExceptionHandler
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken
+    )
     {
         var (statusCode, title, detail) = exception switch
         {
-            ValidationException or ArgumentException =>
-                (StatusCodes.Status400BadRequest, "Invalid request", exception.Message),
-            NotFoundException or UserNotFoundException or FriendshipNotFoundException or CommunityNotFoundException =>
-                (StatusCodes.Status404NotFound, "Not found", exception.Message),
-            InvalidCredentialsException =>
-                (StatusCodes.Status401Unauthorized, "Unauthorized", exception.Message),
-            AccountDeactivatedException or UnauthorizedFriendshipActionException or UnauthorizedCommunityActionException =>
-                (StatusCodes.Status403Forbidden, "Forbidden", exception.Message),
-            EmailAlreadyExistsException or UsernameAlreadyTakenException =>
-                (StatusCodes.Status409Conflict, "Conflict", exception.Message),
-            DomainException =>
-                (StatusCodes.Status400BadRequest, "Invalid request", exception.Message),
-            _ =>
-                (StatusCodes.Status500InternalServerError, "Internal server error", "An unexpected error occurred."),
+            ValidationException or ArgumentException => (
+                StatusCodes.Status400BadRequest,
+                "Invalid request",
+                exception.Message
+            ),
+            NotFoundException
+            or UserNotFoundException
+            or FriendshipNotFoundException
+            or CommunityNotFoundException
+            or ScrapNotFoundException => (
+                StatusCodes.Status404NotFound,
+                "Not found",
+                exception.Message
+            ),
+            InvalidCredentialsException => (
+                StatusCodes.Status401Unauthorized,
+                "Unauthorized",
+                exception.Message
+            ),
+            AccountDeactivatedException
+            or UnauthorizedFriendshipActionException
+            or UnauthorizedCommunityActionException
+            or UnauthorizedScrapActionException => (
+                StatusCodes.Status403Forbidden,
+                "Forbidden",
+                exception.Message
+            ),
+            EmailAlreadyExistsException or UsernameAlreadyTakenException => (
+                StatusCodes.Status409Conflict,
+                "Conflict",
+                exception.Message
+            ),
+            DomainException => (
+                StatusCodes.Status400BadRequest,
+                "Invalid request",
+                exception.Message
+            ),
+            _ => (
+                StatusCodes.Status500InternalServerError,
+                "Internal server error",
+                "An unexpected error occurred."
+            ),
         };
 
-        if (statusCode == StatusCodes.Status500InternalServerError)
-            _logger.LogError(exception, "Unhandled exception: {Message}", exception.Message);
+        _logger.LogError(exception, "Unhandled exception: {Message}", exception.Message);
 
         httpContext.Response.StatusCode = statusCode;
 
@@ -49,7 +77,8 @@ public class GlobalExceptionHandler : IExceptionHandler
                 Title = title,
                 Detail = detail,
             },
-            cancellationToken);
+            cancellationToken
+        );
 
         return true;
     }

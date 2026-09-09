@@ -50,6 +50,11 @@ public sealed class TestStorageService : IStorageService
         string contentType,
         CancellationToken cancellationToken = default)
     {
+        var firstByte = stream.ReadByte();
+        stream.Position = 0;
+        if (firstByte == 9)
+            throw new InvalidOperationException("Simulated storage upload failure.");
+
         return Task.FromResult($"https://storage.test/{fileName}");
     }
 }

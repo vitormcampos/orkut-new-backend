@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<Friendship> Friendships => Set<Friendship>();
     public DbSet<Community> Communities => Set<Community>();
     public DbSet<CommunityMember> CommunityMembers => Set<CommunityMember>();
+    public DbSet<Scrap> Scraps => Set<Scrap>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
