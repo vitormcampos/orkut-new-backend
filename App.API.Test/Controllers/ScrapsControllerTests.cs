@@ -51,6 +51,33 @@ public sealed class ScrapsControllerTests : ApiTestBase
     }
 
     [Fact]
+    public async Task GetProfileScraps_ShouldAllowAnonymousAccessToPublicScraps()
+    {
+        // Arrange
+        var author = await RegisterUserAsync("anonymous_author");
+        var recipient = await RegisterUserAsync("anonymous_recipient");
+        await CreateScrapAsync(author, recipient, "Recado público");
+
+        // Act
+        var response = await Client.GetAsync($"/api/v1/scraps/profile/{recipient.Id}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var page = await response.Content.ReadFromJsonAsync<ScrapPageDto>();
+        Assert.Equal("Recado público", Assert.Single(page!.Items).Content);
+    }
+
+    [Fact]
+    public async Task GetProfileScraps_ShouldReturnNotFoundForUnknownProfile()
+    {
+        // Act
+        var response = await Client.GetAsync($"/api/v1/scraps/profile/{Guid.NewGuid()}");
+
+        // Assert
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Fact]
     public async Task GetProfileScraps_ShouldReturnPublicScraps()
     {
         // Arrange

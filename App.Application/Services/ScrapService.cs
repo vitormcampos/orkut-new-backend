@@ -40,7 +40,7 @@ public class ScrapService : IScrapService
 
     public async Task<ScrapPageDto> GetProfileScrapsAsync(
         Guid profileId,
-        Guid viewerId,
+        Guid? viewerId,
         int page = 1,
         int pageSize = 10,
         CancellationToken ct = default
@@ -49,6 +49,13 @@ public class ScrapService : IScrapService
         page = Math.Max(1, page);
         pageSize = Math.Clamp(pageSize, 1, 50);
 
+        var profileExists = await _context
+            .Set<User>()
+            .AnyAsync(u => u.Id == profileId && u.IsActive, ct);
+
+        if (!profileExists)
+            throw new UserNotFoundException(profileId.ToString());
+
         var query = _context
             .Set<Scrap>()
             .Include(s => s.Author)
@@ -56,8 +63,9 @@ public class ScrapService : IScrapService
             .Where(s =>
                 s.RecipientId == profileId
                 && (s.Visibility == ScrapVisibility.Public
-                    || s.AuthorId == viewerId
-                    || s.RecipientId == viewerId));
+                    || (viewerId.HasValue
+                        && (s.AuthorId == viewerId.Value
+                            || s.RecipientId == viewerId.Value))));
 
         var totalItems = await query.CountAsync(ct);
         var items = await query

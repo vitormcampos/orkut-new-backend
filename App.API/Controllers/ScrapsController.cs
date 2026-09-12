@@ -11,7 +11,6 @@ namespace Controllers;
 /// </summary>
 [ApiController]
 [Route("[controller]")]
-[Authorize]
 public class ScrapsController : ControllerBase
 {
     private readonly IScrapService _scrapService;
@@ -23,8 +22,14 @@ public class ScrapsController : ControllerBase
 
     private Guid GetUserId()
     {
+        var userId = GetOptionalUserId();
+        return userId ?? throw new UnauthorizedAccessException();
+    }
+
+    private Guid? GetOptionalUserId()
+    {
         var sub = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? User.FindFirstValue("sub");
-        return Guid.Parse(sub!);
+        return Guid.TryParse(sub, out var userId) ? userId : null;
     }
 
     /// <summary>
@@ -38,6 +43,7 @@ public class ScrapsController : ControllerBase
     /// <response code="401">Token JWT ausente ou invalido.</response>
     /// <response code="404">Destinatario nao encontrado.</response>
     [HttpPost]
+    [Authorize]
     [ProducesResponseType(typeof(ScrapDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -57,17 +63,18 @@ public class ScrapsController : ControllerBase
     /// <param name="ct">Token de cancelamento da requisicao.</param>
     /// <returns>Scraps visiveis e informacoes de paginacao.</returns>
     /// <response code="200">Scraps listados com sucesso.</response>
-    /// <response code="401">Token JWT ausente ou invalido.</response>
+    /// <response code="404">Perfil nao encontrado.</response>
     [HttpGet("profile/{profileId:guid}")]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(ScrapPageDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetProfileScraps(
         Guid profileId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 10,
         CancellationToken ct = default)
     {
-        var result = await _scrapService.GetProfileScrapsAsync(profileId, GetUserId(), page, pageSize, ct);
+        var result = await _scrapService.GetProfileScrapsAsync(profileId, GetOptionalUserId(), page, pageSize, ct);
         return Ok(result);
     }
 
@@ -81,6 +88,7 @@ public class ScrapsController : ControllerBase
     /// <response code="403">Usuario nao e o autor do scrap.</response>
     /// <response code="404">Scrap nao encontrado.</response>
     [HttpDelete("{id:guid}")]
+    [Authorize]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

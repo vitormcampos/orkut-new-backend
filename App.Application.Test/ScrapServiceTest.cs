@@ -45,6 +45,116 @@ public class ScrapServiceTest : IDisposable
     }
 
     [Fact]
+    public async Task GetProfileScraps_ShouldReturnPublicScrapsToAnonymousViewer()
+    {
+        // Arrange
+        var author = CreateUser("Alice", "alice");
+        var recipient = CreateUser("Bob", "bob");
+        _context.Users.AddRange(author, recipient);
+        _context.Scraps.Add(new Scrap(author.Id, recipient.Id, "Público"));
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetProfileScrapsAsync(recipient.Id, null);
+
+        // Assert
+        Assert.Single(result.Items);
+    }
+
+    [Fact]
+    public async Task GetProfileScraps_ShouldHidePrivateScrapFromAnonymousViewer()
+    {
+        // Arrange
+        var author = CreateUser("Alice", "alice");
+        var recipient = CreateUser("Bob", "bob");
+        _context.Users.AddRange(author, recipient);
+        _context.Scraps.Add(new Scrap(author.Id, recipient.Id, "Privado", ScrapVisibility.Private));
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetProfileScrapsAsync(recipient.Id, null);
+
+        // Assert
+        Assert.Empty(result.Items);
+    }
+
+    [Fact]
+    public async Task GetProfileScraps_ShouldReturnNotFoundForInactiveProfile()
+    {
+        // Arrange
+        var author = CreateUser("Alice", "alice");
+        var recipient = CreateUser("Bob", "bob");
+        recipient.Deactivate();
+        _context.Users.AddRange(author, recipient);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var act = () => _service.GetProfileScrapsAsync(recipient.Id, null);
+
+        // Assert
+        await Assert.ThrowsAsync<UserNotFoundException>(act);
+    }
+
+    [Fact]
+    public async Task GetProfileScraps_ShouldPaginateNewestFirst()
+    {
+        // Arrange
+        var author = CreateUser("Alice", "alice");
+        var recipient = CreateUser("Bob", "bob");
+        _context.Users.AddRange(author, recipient);
+        _context.Scraps.AddRange(
+            new Scrap(author.Id, recipient.Id, "Primeiro"),
+            new Scrap(author.Id, recipient.Id, "Segundo"),
+            new Scrap(author.Id, recipient.Id, "Terceiro"));
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetProfileScrapsAsync(recipient.Id, null, 2, 2);
+
+        // Assert
+        Assert.Equal(2, result.Page);
+        Assert.Equal(2, result.PageSize);
+        Assert.Equal(3, result.TotalItems);
+        Assert.False(result.HasNextPage);
+        var scrap = Assert.Single(result.Items);
+        Assert.Equal("Primeiro", scrap.Content);
+    }
+
+    [Fact]
+    public async Task GetProfileScraps_ShouldClampPageSizeToFifty()
+    {
+        // Arrange
+        var author = CreateUser("Alice", "alice");
+        var recipient = CreateUser("Bob", "bob");
+        _context.Users.AddRange(author, recipient);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.GetProfileScrapsAsync(recipient.Id, null, 1, 500);
+
+        // Assert
+        Assert.Equal(50, result.PageSize);
+    }
+
+    [Fact]
+    public async Task Create_ShouldThrow_WhenVisibilityIsInvalid()
+    {
+        // Arrange
+        var author = CreateUser("Alice", "alice");
+        var recipient = CreateUser("Bob", "bob");
+        _context.Users.AddRange(author, recipient);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var act = () => _service.CreateAsync(
+            author.Id,
+            new CreateScrapRequest(recipient.Id, "Oi", "Internal"));
+
+        // Assert
+        await Assert.ThrowsAsync<ArgumentException>(act);
+    }
+
+    [Fact]
     public async Task GetProfileScraps_ShouldHidePrivateScrapFromOtherViewer()
     {
         // Arrange

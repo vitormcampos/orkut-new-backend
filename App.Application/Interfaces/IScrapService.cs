@@ -12,7 +12,7 @@ public interface IScrapService
 
     Task<ScrapPageDto> GetProfileScrapsAsync(
         Guid profileId,
-        Guid viewerId,
+        Guid? viewerId,
         int page = 1,
         int pageSize = 10,
         CancellationToken ct = default
