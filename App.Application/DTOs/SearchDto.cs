@@ -1,7 +1,24 @@
 namespace App.Application.DTOs;
 
-public sealed record SearchQuery(string Term, int Limit = 10);
+public record UserSearchResultDto(
+    Guid Id,
+    string Name,
+    string Username,
+    string? ProfilePicture
+);
 
-public sealed record UserSearchResultDto(Guid Id, string Name, string Username, string? ProfilePicture);
+public record CommunitySearchResultDto(
+    Guid Id,
+    string Name,
+    string? Description,
+    string? Photo,
+    int MemberCount
+);
 
-public sealed record CommunitySearchResultDto(Guid Id, string Name, string? Description, string? Photo, int MemberCount);
+public record SearchPageDto<T>(
+    IReadOnlyList<T> Items,
+    int Page,
+    int PageSize,
+    int TotalItems,
+    bool HasNextPage
+);

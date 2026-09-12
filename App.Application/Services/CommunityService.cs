@@ -50,20 +50,69 @@ public class CommunityService : ICommunityService
         return MapToDto(community, community.Owner.Name, memberCount);
     }
 
+    public async Task<IReadOnlyList<CommunityDto>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
+    {
+        var userExists = await _context.Set<User>()
+            .AnyAsync(u => u.Id == userId && u.IsActive, ct);
+
+        if (!userExists)
+            throw new UserNotFoundException(userId.ToString());
+
+        var memberships = await _context.Set<CommunityMember>()
+            .AsNoTracking()
+            .Include(m => m.Community)
+                .ThenInclude(c => c.Owner)
+            .Where(m => m.UserId == userId)
+            .OrderByDescending(m => m.JoinedAt)
+            .ThenBy(m => m.Community.Name)
+            .ToListAsync(ct);
+
+        var communityIds = memberships.Select(m => m.CommunityId).ToArray();
+        var memberCounts = await _context.Set<CommunityMember>()
+            .Where(m => communityIds.Contains(m.CommunityId))
+            .GroupBy(m => m.CommunityId)
+            .Select(g => new { CommunityId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.CommunityId, x => x.Count, ct);
+
+        return memberships
+            .Select(m => MapToDto(
+                m.Community,
+                m.Community.Owner.Name,
+                memberCounts.GetValueOrDefault(m.CommunityId)))
+            .ToList();
+    }
+
     public async Task<IReadOnlyList<CommunitySearchResultDto>> SearchAsync(string term, int limit = 10, CancellationToken ct = default)
     {
-        var normalizedTerm = NormalizeSearchTerm(term);
-        var normalizedLimit = limit < 1 ? 10 : Math.Min(limit, 20);
+        return (await SearchPageAsync(term, 1, limit, ct)).Items;
+    }
 
-        return await _context.Set<Community>()
+    public async Task<SearchPageDto<CommunitySearchResultDto>> SearchPageAsync(
+        string term,
+        int page = 1,
+        int pageSize = 10,
+        CancellationToken ct = default)
+    {
+        var normalizedTerm = NormalizeSearchTerm(term);
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 20);
+
+        var query = _context.Set<Community>()
             .AsNoTracking()
-            .Where(c => c.Name.ToLower().Contains(normalizedTerm) || (c.Description != null && c.Description.ToLower().Contains(normalizedTerm)))
+            .Where(c => c.Name.ToLower().Contains(normalizedTerm) ||
+                (c.Description != null && c.Description.ToLower().Contains(normalizedTerm)));
+        var totalItems = await query.CountAsync(ct);
+        var items = await query
             .OrderBy(c => c.Name)
             .ThenBy(c => c.Id)
-            .Take(normalizedLimit)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(c => new CommunitySearchResultDto(c.Id, c.Name, c.Description, c.Photo,
                 _context.Set<CommunityMember>().Count(m => m.CommunityId == c.Id)))
             .ToListAsync(ct);
+
+        return new SearchPageDto<CommunitySearchResultDto>(
+            items, page, pageSize, totalItems, page * pageSize < totalItems);
     }
 
     public async Task<CommunityDto?> GetByIdAsync(Guid communityId, CancellationToken ct = default)

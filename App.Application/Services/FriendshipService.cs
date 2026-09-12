@@ -282,9 +282,11 @@ public class FriendshipService : IFriendshipService
             friendship.RequesterId,
             friendship.Requester.Name,
             friendship.Requester.Username,
+            friendship.Requester.ProfilePicture,
             friendship.AddresseeId,
             friendship.Addressee.Name,
             friendship.Addressee.Username,
+            friendship.Addressee.ProfilePicture,
             friendship.Status.ToString(),
             friendship.RequestedAt,
             friendship.RespondedAt

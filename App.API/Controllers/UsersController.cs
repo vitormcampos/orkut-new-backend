@@ -39,19 +39,24 @@ public class UsersController : ControllerBase
 
     /// <summary>Busca usuarios ativos por nome ou username.</summary>
     /// <param name="term">Termo entre 2 e 100 caracteres.</param>
-    /// <param name="limit">Padrao 10; valores menores que 1 usam 10 e valores acima de 20 sao limitados a 20.</param>
+    /// <param name="page">Numero da pagina, iniciando em 1.</param>
+    /// <param name="pageSize">Itens por pagina; padrao 10 e limite 20.</param>
     /// <param name="ct">Token de cancelamento.</param>
     /// <returns>Usuarios encontrados, ordenados por nome e id.</returns>
     /// <response code="200">Busca concluida.</response>
     /// <response code="400">Termo invalido.</response>
     /// <response code="401">Token ausente ou invalido.</response>
     [HttpGet("search")]
-    [ProducesResponseType(typeof(IReadOnlyList<UserSearchResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SearchPageDto<UserSearchResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Search([FromQuery] string term, [FromQuery] int limit = 10, CancellationToken ct = default)
+    public async Task<IActionResult> Search(
+        [FromQuery] string term,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default)
     {
-        return Ok(await _userService.SearchAsync(term, limit, ct));
+        return Ok(await _userService.SearchPageAsync(term, page, pageSize, ct));
     }
 
     /// <summary>

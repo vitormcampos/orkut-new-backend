@@ -158,6 +158,55 @@ public class CommunityServiceTest : IDisposable
     }
 
     [Fact]
+    public async Task GetByUserIdAsync_ShouldReturnCommunitiesTheUserBelongsTo()
+    {
+        // Arrange
+        var owner = CreateUser("Alice");
+        var member = CreateUser("Bob");
+        _context.Users.AddRange(owner, member);
+        await _context.SaveChangesAsync();
+
+        var joined = await _communityService.CreateAsync(
+            owner.Id,
+            new CreateCommunityRequest("Joined", "Joined community"));
+        await _communityService.JoinAsync(joined.Id, member.Id);
+
+        // Act
+        var result = await _communityService.GetByUserIdAsync(member.Id);
+
+        // Assert
+        var community = Assert.Single(result);
+        Assert.Equal(joined.Id, community.Id);
+        Assert.Equal("Joined", community.Name);
+        Assert.Equal(2, community.MemberCount);
+    }
+
+    [Fact]
+    public async Task GetByUserIdAsync_ShouldReturnEmpty_WhenUserHasNoCommunities()
+    {
+        // Arrange
+        var user = CreateUser("Alice");
+        _context.Users.Add(user);
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _communityService.GetByUserIdAsync(user.Id);
+
+        // Assert
+        Assert.Empty(result);
+    }
+
+    [Fact]
+    public async Task GetByUserIdAsync_ShouldThrow_WhenUserDoesNotExist()
+    {
+        // Act
+        var act = () => _communityService.GetByUserIdAsync(Guid.NewGuid());
+
+        // Assert
+        await Assert.ThrowsAsync<UserNotFoundException>(act);
+    }
+
+    [Fact]
     public async Task SearchAsync_ShouldMatchNameOrDescription_CaseInsensitively_AndCalculateMemberCount()
     {
         // Arrange

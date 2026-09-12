@@ -60,17 +60,33 @@ public class UserService : IUserService
 
     public async Task<IReadOnlyList<UserSearchResultDto>> SearchAsync(string term, int limit = 10, CancellationToken cancellationToken = default)
     {
-        var normalizedTerm = NormalizeSearchTerm(term);
-        var normalizedLimit = limit < 1 ? 10 : Math.Min(limit, 20);
+        return (await SearchPageAsync(term, 1, limit, cancellationToken)).Items;
+    }
 
-        return await _context.Set<User>()
+    public async Task<SearchPageDto<UserSearchResultDto>> SearchPageAsync(
+        string term,
+        int page = 1,
+        int pageSize = 10,
+        CancellationToken cancellationToken = default)
+    {
+        var normalizedTerm = NormalizeSearchTerm(term);
+        page = Math.Max(1, page);
+        pageSize = Math.Clamp(pageSize, 1, 20);
+
+        var query = _context.Set<User>()
             .AsNoTracking()
-            .Where(u => u.IsActive && (u.Name.ToLower().Contains(normalizedTerm) || u.Username.ToLower().Contains(normalizedTerm)))
+            .Where(u => u.IsActive && (u.Name.ToLower().Contains(normalizedTerm) || u.Username.ToLower().Contains(normalizedTerm)));
+        var totalItems = await query.CountAsync(cancellationToken);
+        var items = await query
             .OrderBy(u => u.Name)
             .ThenBy(u => u.Id)
-            .Take(normalizedLimit)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .Select(u => new UserSearchResultDto(u.Id, u.Name, u.Username, u.ProfilePicture))
             .ToListAsync(cancellationToken);
+
+        return new SearchPageDto<UserSearchResultDto>(
+            items, page, pageSize, totalItems, page * pageSize < totalItems);
     }
 
     public async Task<UserDto> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default)

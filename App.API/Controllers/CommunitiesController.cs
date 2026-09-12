@@ -32,19 +32,24 @@ public class CommunitiesController : ControllerBase
 
     /// <summary>Busca comunidades por nome ou descricao.</summary>
     /// <param name="term">Termo entre 2 e 100 caracteres.</param>
-    /// <param name="limit">Padrao 10; valores menores que 1 usam 10 e valores acima de 20 sao limitados a 20.</param>
+    /// <param name="page">Numero da pagina, iniciando em 1.</param>
+    /// <param name="pageSize">Itens por pagina; padrao 10 e limite 20.</param>
     /// <param name="ct">Token de cancelamento.</param>
     /// <returns>Comunidades encontradas, ordenadas por nome e id.</returns>
     /// <response code="200">Busca concluida.</response>
     /// <response code="400">Termo invalido.</response>
     /// <response code="401">Token ausente ou invalido.</response>
     [HttpGet("search")]
-    [ProducesResponseType(typeof(IReadOnlyList<CommunitySearchResultDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(SearchPageDto<CommunitySearchResultDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
-    public async Task<IActionResult> Search([FromQuery] string term, [FromQuery] int limit = 10, CancellationToken ct = default)
+    public async Task<IActionResult> Search(
+        [FromQuery] string term,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        CancellationToken ct = default)
     {
-        return Ok(await _communityService.SearchAsync(term, limit, ct));
+        return Ok(await _communityService.SearchPageAsync(term, page, pageSize, ct));
     }
 
     /// <summary>
@@ -113,6 +118,25 @@ public class CommunitiesController : ControllerBase
             return NotFound();
 
         return Ok(community);
+    }
+
+    /// <summary>
+    /// Lista as comunidades das quais um usuario participa.
+    /// </summary>
+    /// <param name="userId">Id do usuario.</param>
+    /// <param name="ct">Token de cancelamento da requisicao.</param>
+    /// <returns>Comunidades do usuario.</returns>
+    /// <response code="200">Comunidades listadas com sucesso.</response>
+    /// <response code="401">Token JWT ausente ou invalido.</response>
+    /// <response code="404">Usuario nao encontrado.</response>
+    [HttpGet("user/{userId:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<CommunityDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetUserCommunities(Guid userId, CancellationToken ct)
+    {
+        var communities = await _communityService.GetByUserIdAsync(userId, ct);
+        return Ok(communities);
     }
 
     /// <summary>

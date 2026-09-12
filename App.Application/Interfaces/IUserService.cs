@@ -10,6 +10,7 @@ public interface IUserService
     Task<UserDto?> GetByUsernameAsync(string username, CancellationToken cancellationToken = default);
     Task<IEnumerable<UserDto>> GetAllAsync(CancellationToken cancellationToken = default);
     Task<IReadOnlyList<UserSearchResultDto>> SearchAsync(string term, int limit = 10, CancellationToken cancellationToken = default);
+    Task<SearchPageDto<UserSearchResultDto>> SearchPageAsync(string term, int page = 1, int pageSize = 10, CancellationToken cancellationToken = default);
     Task<UserDto> CreateAsync(CreateUserRequest request, CancellationToken cancellationToken = default);
     Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest request, CancellationToken cancellationToken = default);
     Task<UserDto> UpdateProfileAsync(Guid id, UpdateProfileRequest request, CancellationToken cancellationToken = default);

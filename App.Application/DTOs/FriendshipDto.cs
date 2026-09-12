@@ -5,9 +5,11 @@ public record FriendshipDto(
     Guid RequesterId,
     string RequesterName,
     string RequesterUsername,
+    string? RequesterProfilePicture,
     Guid AddresseeId,
     string AddresseeName,
     string AddresseeUsername,
+    string? AddresseeProfilePicture,
     string Status,
     DateTime RequestedAt,
     DateTime? RespondedAt
