@@ -1,23 +1,21 @@
 using App.Domain.Entities;
 using App.Infrastructure.Data;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace App.Infrastructure.Test;
 
+[Collection(PostgreSqlTestCollection.Name)]
 public sealed class AppDbContextInfrastructureTest : IDisposable
 {
-    private readonly SqliteConnection _connection;
     private readonly AppDbContext _context;
 
-    public AppDbContextInfrastructureTest()
+    public AppDbContextInfrastructureTest(PostgreSqlFixture fixture)
     {
-        _connection = new SqliteConnection("Data Source=:memory:");
-        _connection.Open();
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlite(_connection)
+            .UseNpgsql(fixture.ConnectionString)
             .Options;
         _context = new AppDbContext(options);
+        _context.Database.EnsureDeleted();
         _context.Database.EnsureCreated();
     }
 
@@ -25,12 +23,13 @@ public sealed class AppDbContextInfrastructureTest : IDisposable
     public async Task EnsureCreated_ShouldCreateConfiguredSchema()
     {
         var tableNames = await _context.Database
-            .SqlQueryRaw<string>("SELECT name AS Value FROM sqlite_master WHERE type = 'table'")
+            .SqlQueryRaw<string>("SELECT tablename AS \"Value\" FROM pg_tables WHERE schemaname = 'public'")
             .ToListAsync();
 
         Assert.Contains("users", tableNames);
         Assert.Contains("friendships", tableNames);
         Assert.Contains("refresh_tokens", tableNames);
+        Assert.Contains("posts", tableNames);
     }
 
     [Fact]
@@ -70,6 +69,5 @@ public sealed class AppDbContextInfrastructureTest : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
     }
 }
