@@ -44,6 +44,7 @@ public static class DependencyInjection
         services.AddScoped<IProfileService, ProfileService>();
         services.AddScoped<ICommunityService, CommunityService>();
         services.AddScoped<IScrapService, ScrapService>();
+        services.AddScoped<IPostService, PostService>();
 
         return services;
     }

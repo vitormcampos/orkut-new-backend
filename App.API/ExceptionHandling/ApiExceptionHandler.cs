@@ -33,6 +33,8 @@ public sealed class ApiExceptionHandler : IExceptionHandler
             UserNotFoundException => StatusCodes.Status404NotFound,
             FriendshipNotFoundException => StatusCodes.Status404NotFound,
             ScrapNotFoundException => StatusCodes.Status404NotFound,
+            PostNotFoundException => StatusCodes.Status404NotFound,
+            UnauthorizedPostActionException => StatusCodes.Status403Forbidden,
             ValidationException => StatusCodes.Status400BadRequest,
             DomainException => StatusCodes.Status400BadRequest,
             ArgumentException => StatusCodes.Status400BadRequest,
