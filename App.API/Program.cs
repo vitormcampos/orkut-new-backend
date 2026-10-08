@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text;
 using App.API.Conventions;
 using App.API.ExceptionHandling;
+using App.API.Extensions;
 using App.API.Filters;
 using App.API.Middleware;
 using App.Application.Options;
@@ -106,6 +107,8 @@ builder.Services.AddCors(options =>
 });
 
 var app = builder.Build();
+
+await app.ApplyDatabaseMigrationsAsync();
 
 app.UseExceptionHandler();
 
